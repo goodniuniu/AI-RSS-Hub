@@ -1,0 +1,23 @@
+[Unit]
+Description=AI-RSS-Hub - Intelligent RSS Aggregation System
+After=network.target
+
+[Service]
+Type=simple
+User=sam
+WorkingDirectory=/home/sam/Github/AI-RSS-Hub
+Environment="PATH=/home/sam/Github/AI-RSS-Hub/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/sam/Github/AI-RSS-Hub/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+ExecStop=/bin/kill -SIGTERM $MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-rss-hub
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

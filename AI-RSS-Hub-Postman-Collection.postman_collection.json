@@ -1,0 +1,266 @@
+{
+	"info": {
+		"_postman_id": "ai-rss-hub-collection",
+		"name": "AI-RSS-Hub API",
+		"description": "Complete API collection for AI-RSS-Hub - Intelligent RSS Aggregation System with AI Summaries",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1️⃣ Health & Status",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/health",
+							"host": ["{{base_url}}"],
+							"path": ["api", "health"]
+						},
+						"description": "Check if the API is running\n\n**No authentication required**"
+					},
+					"response": []
+				},
+				{
+					"name": "System Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "status"]
+						},
+						"description": "Get detailed system status including scheduler status, database info, and LLM configuration\n\n**No authentication required**"
+					},
+					"response": []
+				}
+			],
+			"description": "Basic health and status endpoints"
+		},
+		{
+			"name": "2️⃣ RSS Feeds",
+			"item": [
+				{
+					"name": "Get All Feeds",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/feeds",
+							"host": ["{{base_url}}"],
+							"path": ["api", "feeds"]
+						},
+						"description": "Get all RSS feeds in the system\n\n**No authentication required**"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Feeds Only",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/feeds?active_only=true",
+							"host": ["{{base_url}}"],
+							"path": ["api", "feeds"],
+							"query": [
+								{
+									"key": "active_only",
+									"value": "true",
+									"description": "Only return active feeds"
+								}
+							]
+						},
+						"description": "Get only active RSS feeds\n\n**No authentication required**"
+					},
+					"response": []
+				},
+				{
+					"name": "Add New Feed 🔒",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Token",
+								"value": "{{api_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Example Tech Blog\",\n    \"url\": \"https://example.com/feed.xml\",\n    \"category\": \"tech\",\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/feeds",
+							"host": ["{{base_url}}"],
+							"path": ["api", "feeds"]
+						},
+						"description": "Add a new RSS feed to the system\n\n**⚠️ Authentication required**\n\nRequest Body:\n- name: Feed name (required)\n- url: Feed URL (required)\n- category: Category (default: \"tech\")\n- is_active: Active status (default: true)"
+					},
+					"response": []
+				}
+			],
+			"description": "Manage RSS feeds"
+		},
+		{
+			"name": "3️⃣ Articles",
+			"item": [
+				{
+					"name": "Get Latest Articles (20)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles?limit=20",
+							"host": ["{{base_url}}"],
+							"path": ["api", "articles"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Get the latest 20 articles\n\n**No authentication required**"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Tech Articles",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles?category=tech&limit=20",
+							"host": ["{{base_url}}"],
+							"path": ["api", "articles"],
+							"query": [
+								{
+									"key": "category",
+									"value": "tech",
+									"description": "Filter by category"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Get articles filtered by category\n\n**No authentication required**"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Articles from Last 7 Days",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles?days=7&limit=50",
+							"host": ["{{base_url}}"],
+							"path": ["api", "articles"],
+							"query": [
+								{
+									"key": "days",
+									"value": "7",
+									"description": "Only articles from last N days"
+								},
+								{
+									"key": "limit",
+									"value": "50"
+								}
+							]
+						},
+						"description": "Get articles from the last 7 days\n\n**No authentication required**"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Recent Articles (5)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles?limit=5",
+							"host": ["{{base_url}}"],
+							"path": ["api", "articles"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "5"
+								}
+							]
+						},
+						"description": "Get the 5 most recent articles\n\n**No authentication required**"
+					},
+					"response": []
+				}
+			],
+			"description": "Retrieve articles with various filters"
+		},
+		{
+			"name": "4️⃣ Admin Operations",
+			"item": [
+				{
+					"name": "Manual RSS Fetch 🔒",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Token",
+								"value": "{{api_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/feeds/fetch",
+							"host": ["{{base_url}}"],
+							"path": ["api", "feeds", "fetch"]
+						},
+						"description": "Manually trigger RSS fetching for all active feeds\n\n**⚠️ Authentication required**\n\n⏱️ **Note:** This may take 10-30 seconds depending on the number of feeds and articles.\n\nReturns fetch statistics including total articles processed."
+					},
+					"response": []
+				}
+			],
+			"description": "Administrative operations that require authentication"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"",
+					"// Auto-set base_url if not in environment",
+					"if (!pm.environment.get(\"base_url\")) {",
+					"    pm.environment.set(\"base_url\", \"http://8.134.202.27:8000\");",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://8.134.202.27:8000",
+			"type": "string"
+		},
+		{
+			"key": "api_token",
+			"value": "",
+			"type": "string",
+			"description": "Set this to your API token if authentication is enabled on the server"
+		}
+	]
+}

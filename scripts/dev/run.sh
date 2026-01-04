@@ -5,8 +5,8 @@ echo "启动 AI-RSS-Hub..."
 
 # 检查 .env 文件是否存在
 if [ ! -f .env ]; then
-    echo "警告: .env 文件不存在，请先复制 .env.example 为 .env 并配置"
-    echo "执行: cp .env.example .env"
+    echo "警告: .env 文件不存在，请先复制 config/env/.env.example 为 .env 并配置"
+    echo "执行: cp config/env/.env.example .env"
     exit 1
 fi
 

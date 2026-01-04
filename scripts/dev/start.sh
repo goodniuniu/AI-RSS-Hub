@@ -55,7 +55,7 @@ if [ ! -f ".env" ]; then
     read -p "是否现在创建 .env 文件？(y/n) " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        cp .env.example .env
+        cp config/env/.env.example .env
         echo "✅ .env 文件已创建，请编辑后再次运行此脚本"
         echo "📝 编辑命令：nano .env 或 vim .env"
     fi

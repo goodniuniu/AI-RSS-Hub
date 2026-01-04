@@ -16,7 +16,7 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-SERVICE_FILE="ai-rss-hub.service"
+SERVICE_FILE="config/systemd/ai-rss-hub.service"
 SERVICE_PATH="/etc/systemd/system/${SERVICE_FILE}"
 APP_DIR="/home/sam/Github/AI-RSS-Hub"
 APP_USER="sam"

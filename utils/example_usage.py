@@ -5,7 +5,7 @@ AI-RSS-Hub Usage Examples
 This script demonstrates how to use the AI-RSS-Hub API from a client.
 """
 
-from rss_client import RSSHubClient, RSSHubAdminClient
+from utils.rss_client import RSSHubClient, RSSHubAdminClient
 import json
 
 

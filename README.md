@@ -95,12 +95,13 @@ The API will be available at: `http://localhost:8000`
 
 | Document | Description |
 |----------|-------------|
-| [🔧 API Reference](docs/api/API_GUIDE.md) | Complete API documentation for client development |
+| [📚 Documentation Center](docs/README.md) | **NEW**: Central hub for all documentation |
+| [🔧 API Reference](docs/api/README.md) | Complete API documentation |
 | [💻 Client Usage Guide](docs/guides/CLIENT_USAGE_GUIDE.md) | How to use the API |
 | [⚡ Quick Start for Clients](docs/guides/QUICK_START_CLIENT.md) | Fast-track client integration |
 | [📮 Postman Collection](docs/guides/POSTMAN_GUIDE.md) | API testing with Postman |
-| [📅 Date Filtering Guide](docs/API_DATE_FILTERING_GUIDE.md) | **NEW**: Query articles by date and date ranges |
-| [📊 API Monitoring Guide](docs/API_MONITORING_GUIDE.md) | **NEW**: Monitor API usage and performance |
+| [📅 Date Filtering Guide](docs/api/DATE_FILTERING_GUIDE.md) | **NEW**: Query articles by date |
+| [📊 API Monitoring Guide](docs/api/MONITORING_GUIDE.md) | **NEW**: Monitor API usage |
 | [📝 Project Understanding](docs/development/PROJECT_UNDERSTANDING.md) | Architecture and design |
 | [🔐 Security Guide](config/env/.env.security) | Security best practices |
 

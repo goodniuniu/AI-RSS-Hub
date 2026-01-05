@@ -111,7 +111,7 @@ def list_articles(
             days=days,
         )
 
-        # 转换为响应模型，并添加 feed_name
+        # 转换为响应模型，并添加 feed_name 和 summary_en
         response_articles = []
         for article in articles:
             article_dict = {
@@ -119,6 +119,7 @@ def list_articles(
                 "title": article.title,
                 "link": article.link,
                 "summary": article.summary,
+                "summary_en": article.summary_en,  # 英文摘要
                 "published_at": article.published_at,
                 "feed_id": article.feed_id,
                 "feed_name": article.feed.name if article.feed else None,

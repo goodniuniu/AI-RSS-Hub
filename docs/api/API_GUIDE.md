@@ -355,6 +355,7 @@ curl "http://your-server:8000/api/articles?category=tech&days=3&limit=30"
     "title": "Show HN: I built a tool to...",
     "link": "https://news.ycombinator.com/item?id=123456",
     "summary": "一位开发者分享了他构建的工具，该工具可以帮助开发者更高效地管理项目。工具支持多种编程语言，并提供详细的文档和示例。",
+    "summary_en": "A developer shared a tool they built to help developers manage projects more efficiently. The tool supports multiple programming languages and provides detailed documentation and examples.",
     "published_at": "2025-12-25T09:30:00",
     "feed_id": 1,
     "feed_name": "Hacker News",
@@ -365,6 +366,7 @@ curl "http://your-server:8000/api/articles?category=tech&days=3&limit=30"
     "title": "AI Breakthrough in Language Models",
     "link": "https://techcrunch.com/2025/12/25/ai-breakthrough",
     "summary": "研究人员在语言模型领域取得重大突破，新的模型在多个基准测试中超越了以往的记录。这项技术有望应用于更多实际场景。",
+    "summary_en": "Researchers have made a major breakthrough in language models, with new models surpassing previous records across multiple benchmarks. This technology is expected to be applied to more real-world scenarios.",
     "published_at": "2025-12-25T08:15:00",
     "feed_id": 2,
     "feed_name": "TechCrunch",
@@ -377,7 +379,8 @@ curl "http://your-server:8000/api/articles?category=tech&days=3&limit=30"
 - `id`: 文章唯一标识
 - `title`: 文章标题
 - `link`: 文章原始链接
-- `summary`: AI 生成的摘要（可能为 `null` 如果尚未生成）
+- `summary`: AI 生成的中文摘要（可能为 `null` 如果尚未生成）
+- `summary_en`: AI 生成的英文摘要（可能为 `null` 如果尚未生成，或旧文章未更新）
 - `published_at`: 文章发布时间（ISO 8601 格式）
 - `feed_id`: 所属 RSS 源 ID
 - `feed_name`: 所属 RSS 源名称
@@ -512,7 +515,8 @@ RSS 源的数据结构。
   "id": 1,                           // 整数，唯一标识
   "title": "Article Title",          // 字符串，文章标题
   "link": "https://example.com/article",  // 字符串，文章链接
-  "summary": "AI generated summary...",  // 字符串或 null，AI 摘要
+  "summary": "AI生成摘要...",  // 字符串或 null，AI 中文摘要
+  "summary_en": "AI generated summary...",  // 字符串或 null，AI 英文摘要（新增）
   "published_at": "2025-12-25T09:30:00",  // 字符串或 null，发布时间
   "feed_id": 1,                      // 整数，所属源 ID
   "feed_name": "Hacker News",        // 字符串或 null，源名称
@@ -854,6 +858,7 @@ interface Article {
   title: string;
   link: string;
   summary: string | null;
+  summary_en: string | null;
   published_at: string | null;
   feed_id: number;
   feed_name: string | null;
@@ -966,6 +971,7 @@ class Article:
     title: str
     link: str
     summary: Optional[str]
+    summary_en: Optional[str]
     published_at: Optional[str]
     feed_id: int
     feed_name: Optional[str]
@@ -1131,8 +1137,8 @@ curl -s -X POST "$API_BASE/api/feeds/fetch" \
 
 ### B. 常见问题
 
-**Q: 为什么有些文章的 summary 是 null？**
-A: AI 摘要正在生成中，或者 LLM API 调用失败。稍后刷新即可。
+**Q: 为什么有些文章的 summary 或 summary_en 是 null？**
+A: AI 摘要正在生成中，或者 LLM API 调用失败。对于旧文章，可能尚未生成英文摘要（summary_en）。稍后刷新即可。
 
 **Q: 如何获取所有文章？**
 A: 分批获取，每次最多 200 篇：`?limit=200&days=365`

@@ -164,7 +164,8 @@ def get_articles(limit=20, category=None, days=None):
 articles = get_articles(limit=10, category="tech")
 for article in articles:
     print(f"\nTitle: {article['title']}")
-    print(f"Summary: {article['summary']}")
+    print(f"Summary (CN): {article['summary']}")
+    print(f"Summary (EN): {article.get('summary_en', 'N/A')}")
     print(f"Link: {article['link']}")
 ```
 

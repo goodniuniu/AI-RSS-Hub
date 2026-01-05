@@ -6,7 +6,7 @@
 
 ### 核心功能
 - 📡 **自动抓取**：定期抓取配置的 RSS 源，默认每小时执行一次
-- 🤖 **AI 总结**：使用 LLM API 自动生成文章摘要（100字以内）
+- 🤖 **双语 AI 总结**：使用 LLM API 自动生成中英文双语摘要（各100字），适合语言学习
 - 💾 **数据持久化**：使用 SQLite 存储 Feed 和 Article 数据
 - 🔌 **RESTful API**：提供完整的 API 接口用于管理和查询
 - ⏰ **后台任务**：使用 APScheduler 实现非阻塞的定时任务
@@ -358,6 +358,7 @@ python regenerate_summaries.py
 ## 详细文档
 
 - 📖 [完整配置指南](SETUP.md) - 本地测试环境搭建
+- 🌐 [双语摘要功能指南](BILINGUAL_SUMMARY_GUIDE.md) - 双语摘要功能详细说明
 - 🚀 [生产部署指南](AUTO_START_GUIDE.md) - systemd 服务配置和自动启动
 - 📝 [项目理解文档](PROJECT_UNDERSTANDING.md) - 深入了解项目架构
 - 🔐 [安全文档](.env.security) - 安全配置建议

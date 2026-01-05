@@ -377,3 +377,176 @@ def get_api_stats(
     except Exception as e:
         logger.error(f"获取统计信息失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取统计失败: {str(e)}")
+
+
+# ============================================================================
+# RSS 输出端点
+# ============================================================================
+
+from fastapi import Response
+from app.services.rss_generator import generate_rss_response, generate_category_rss
+
+
+@router.get("/rss", response_class=Response)
+@router.get("/rss/{summary_type}", response_class=Response)
+def rss_feed(
+    summary_type: str = "zh",
+    category: Optional[str] = Query(None, description="按分类筛选"),
+    days: Optional[int] = Query(None, ge=1, le=30, description="获取最近几天的文章"),
+    limit: int = Query(50, ge=1, le=200, description="返回数量限制"),
+    session: Session = Depends(get_session),
+):
+    """
+    RSS 订阅源
+
+    生成标准的 RSS 2.0 格式输出，可供任何 RSS 阅读器订阅。
+
+    **基础用法**:
+        GET /rss                    # 中文摘要
+        GET /rss/en                 # 英文摘要
+        GET /rss/bilingual          # 双语混合
+
+    **过滤选项**:
+        ?category=科技              # 按分类筛选
+        &days=7                     # 最近 N 天
+        &limit=50                   # 数量限制
+
+    **示例**:
+        GET /rss                    # 所有最新文章（中文）
+        GET /rss/en                 # 所有最新文章（英文）
+        GET /rss/bilingual          # 所有最新文章（双语）
+        GET /rss?category=科技       # 科技分类（中文）
+        GET /rss?days=7             # 最近 7 天
+        GET /rss?limit=100          # 最多 100 篇
+
+    **订阅方式**:
+        Feedly/Inoreader 等:
+        1. 添加订阅源
+        2. 输入: http://your-server:8000/rss
+        3. 完成
+
+    Args:
+        summary_type: 摘要类型 (zh/en/bilingual)
+        category: 按分类筛选
+        days: 获取最近几天的文章
+        limit: 返回数量限制
+        session: 数据库会话
+
+    Returns:
+        RSS XML (application/rss+xml)
+    """
+    try:
+        # 验证 summary_type
+        if summary_type not in ["zh", "en", "bilingual"]:
+            summary_type = "zh"
+
+        # 获取文章
+        logger.info(f"RSS 请求: type={summary_type}, category={category}, days={days}, limit={limit}")
+        articles = get_articles(
+            session,
+            limit=limit,
+            category=category,
+            days=days,
+            date=None,
+            start_date=None,
+            end_date=None
+        )
+        logger.info(f"RSS: 从数据库获取了 {len(articles)} 篇文章")
+
+        # 生成 RSS
+        base_url = "http://localhost:8000"  # TODO: 从配置读取
+
+        # 根据是否有分类自定义标题
+        title = None
+        description = None
+        if category:
+            title = f"AI-RSS-Hub - {category}"
+            description = f"AI 智能聚合的 {category} 资讯"
+
+        rss_xml = generate_rss_response(
+            articles=articles,
+            summary_type=summary_type,
+            base_url=base_url,
+            title=title,
+            description=description
+        )
+
+        logger.info(
+            f"生成 RSS: {len(articles)} 篇文章, "
+            f"类型={summary_type}, 分类={category or '全部'}"
+        )
+
+        return Response(
+            content=rss_xml,
+            media_type="application/rss+xml; charset=utf-8"
+        )
+
+    except Exception as e:
+        logger.error(f"生成 RSS 失败: {e}")
+        raise HTTPException(status_code=500, detail=f"生成 RSS 失败: {str(e)}")
+
+
+@router.get("/rss/category/{category}", response_class=Response)
+def rss_category_feed(
+    category: str,
+    summary_type: str = Query("zh", description="摘要类型 (zh/en/bilingual)"),
+    days: Optional[int] = Query(None, ge=1, le=30, description="获取最近几天的文章"),
+    limit: int = Query(50, ge=1, le=200, description="返回数量限制"),
+    session: Session = Depends(get_session),
+):
+    """
+    按分类订阅 RSS
+
+    为特定分类的文章生成 RSS 订阅源。
+
+    **示例**:
+        GET /rss/category/tech        # 科技分类（中文）
+        GET /rss/category/科技?summary_type=en    # 科技分类（英文）
+        GET /rss/category/科技?days=7             # 最近 7 天
+
+    Args:
+        category: 分类名称
+        summary_type: 摘要类型
+        days: 获取最近几天的文章
+        limit: 返回数量限制
+        session: 数据库会话
+
+    Returns:
+        RSS XML
+    """
+    try:
+        # 验证 summary_type
+        if summary_type not in ["zh", "en", "bilingual"]:
+            summary_type = "zh"
+
+        # 获取文章
+        articles = get_articles(
+            session,
+            limit=limit,
+            category=category,
+            days=days,
+            date=None,
+            start_date=None,
+            end_date=None
+        )
+
+        # 生成 RSS
+        base_url = "http://localhost:8000"
+        rss_xml = generate_category_rss(
+            articles=articles,
+            category=category,
+            summary_type=summary_type,
+            base_url=base_url
+        )
+
+        logger.info(f"生成分类 RSS [{category}]: {len(articles)} 篇文章, 类型={summary_type}")
+
+        return Response(
+            content=rss_xml,
+            media_type="application/rss+xml; charset=utf-8"
+        )
+
+    except Exception as e:
+        logger.error(f"生成分类 RSS 失败: {e}")
+        raise HTTPException(status_code=500, detail=f"生成分类 RSS 失败: {str(e)}")
+

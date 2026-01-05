@@ -16,9 +16,10 @@ AI-RSS-Hub is an intelligent RSS feed aggregator that automatically fetches RSS 
 - 🚀 **Production Ready** - systemd service support, auto-restart, logging
 - 🌐 **Multi-LLM Support** - OpenAI, DeepSeek, Gemini, and more
 - 📊 **RESTful API** - Complete API for client integration
-- 📅 **Date Filtering** - Query articles by specific date or date ranges (NEW!)
-- 📈 **API Monitoring** - Built-in request tracking and statistics (NEW!)
+- 📅 **Date Filtering** - Query articles by specific date or date ranges
+- 📈 **API Monitoring** - Built-in request tracking and statistics
 - 🌍 **Bilingual Summaries** - Chinese and English summaries for language learning
+- 📡 **RSS Output** - Subscribe with any RSS reader (NEW!)
 
 ---
 
@@ -100,8 +101,9 @@ The API will be available at: `http://localhost:8000`
 | [💻 Client Usage Guide](docs/guides/CLIENT_USAGE_GUIDE.md) | How to use the API |
 | [⚡ Quick Start for Clients](docs/guides/QUICK_START_CLIENT.md) | Fast-track client integration |
 | [📮 Postman Collection](docs/guides/POSTMAN_GUIDE.md) | API testing with Postman |
-| [📅 Date Filtering Guide](docs/api/DATE_FILTERING_GUIDE.md) | **NEW**: Query articles by date |
-| [📊 API Monitoring Guide](docs/api/MONITORING_GUIDE.md) | **NEW**: Monitor API usage |
+| [📅 Date Filtering Guide](docs/api/DATE_FILTERING_GUIDE.md) | Query articles by date |
+| [📊 API Monitoring Guide](docs/api/MONITORING_GUIDE.md) | Monitor API usage |
+| [📡 RSS Usage Guide](docs/api/RSS_USAGE_GUIDE.md) | **NEW**: Subscribe to RSS feeds |
 | [📝 Project Understanding](docs/development/PROJECT_UNDERSTANDING.md) | Architecture and design |
 | [🔐 Security Guide](config/env/.env.security) | Security best practices |
 
@@ -179,6 +181,34 @@ curl -X POST http://localhost:8000/api/feeds \
 curl -X POST http://localhost:8000/api/feeds/fetch \
   -H "X-API-Token: your_token"
 ```
+
+### Subscribe to RSS Feed (NEW!)
+
+AI-RSS-Hub now provides RSS 2.0 feeds that you can subscribe to with any RSS reader!
+
+```bash
+# Chinese summaries (default)
+http://localhost:8000/api/rss
+
+# English summaries
+http://localhost:8000/api/rss/en
+
+# Bilingual summaries
+http://localhost:8000/api/rss/bilingual
+
+# With filters
+http://localhost:8000/api/rss?category=tech&days=7&limit=50
+```
+
+**Supported Readers**: Feedly, Inoreader, NetNewsWire, and any RSS 2.0 compatible reader.
+
+**Features**:
+- 📡 Standard RSS 2.0 format
+- 🌍 Three summary languages (Chinese/English/Bilingual)
+- 🎯 Category and time filtering
+- 📱 HTML-formatted summaries with source links
+
+For complete usage guide, see [RSS Usage Documentation](docs/api/RSS_USAGE_GUIDE.md).
 
 ---
 

@@ -4,6 +4,7 @@
 from datetime import datetime, timedelta
 from typing import List, Optional
 from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
 from app.models import Feed, Article
 import logging
 
@@ -99,7 +100,7 @@ def get_articles(
         3. days - 返回最近 N 天的文章
         4. 无过滤 - 返回所有文章（受 limit 限制）
     """
-    statement = select(Article).join(Feed)
+    statement = select(Article).join(Feed).options(selectinload(Article.feed))
 
     # 按分类筛选
     if category:

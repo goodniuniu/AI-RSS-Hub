@@ -39,7 +39,8 @@ class Article(SQLModel, table=True):
     title: str = Field(index=True, description="文章标题")
     link: str = Field(unique=True, description="文章链接")
     content: Optional[str] = Field(default=None, description="原始内容")
-    summary: Optional[str] = Field(default=None, description="AI 总结")
+    summary: Optional[str] = Field(default=None, description="AI 中文总结")
+    summary_en: Optional[str] = Field(default=None, description="AI 英文总结")
     published_at: Optional[datetime] = Field(default=None, index=True, description="发布时间")
     feed_id: int = Field(foreign_key="feed.id", description="所属 RSS 源 ID")
     created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
@@ -88,6 +89,7 @@ class ArticleResponse(SQLModel):
     title: str
     link: str
     summary: Optional[str]
+    summary_en: Optional[str] = None  # 英文摘要
     published_at: Optional[datetime]
     feed_id: int
     feed_name: Optional[str] = None  # 额外字段，用于显示源名称

@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 from sqlmodel import Session
 from app.models import Feed, Article
 from app.crud import get_all_feeds, article_exists, create_article
-from app.services.summarizer import summarize_text_async
+from app.services.summarizer import summarize_article_bilingual
 from app.config import settings
 import logging
 import time
@@ -129,34 +129,35 @@ async def fetch_feed(feed: Feed, session: Session) -> int:
                 logger.error(f"处理条目失败: {e}")
                 continue
 
-        # 并发生成所有文章的摘要
+        # 并发生成所有文章的双语摘要
         if articles_to_summarize:
-            logger.info(f"开始并发生成 {len(articles_to_summarize)} 篇文章的摘要...")
+            logger.info(f"开始并发生成 {len(articles_to_summarize)} 篇文章的双语摘要（中英文）...")
             summary_start_time = time.time()
 
             # 创建信号量控制并发数量
             semaphore = asyncio.Semaphore(settings.max_concurrent_summaries)
 
-            # 创建所有摘要任务
+            # 创建所有双语摘要任务
             tasks = []
             for article, content in articles_to_summarize:
-                task = summarize_text_async(content, semaphore)
+                task = summarize_article_bilingual(article.title, content, semaphore)
                 tasks.append((article, task))
 
-            # 并发执行所有摘要任务
+            # 并发执行所有双语摘要任务
             summaries = await asyncio.gather(*[task for _, task in tasks])
 
-            # 批量更新数据库
-            for (article, _), summary in zip(tasks, summaries):
-                if summary and "失败" not in summary and "异常" not in summary:
-                    article.summary = summary
+            # 批量更新数据库（中英文摘要）
+            for (article, _), (zh_summary, en_summary) in zip(tasks, summaries):
+                if zh_summary and "失败" not in zh_summary and "异常" not in zh_summary:
+                    article.summary = zh_summary          # 中文摘要
+                    article.summary_en = en_summary      # 英文摘要
                     session.add(article)
 
             session.commit()
 
             summary_duration = time.time() - summary_start_time
             logger.info(
-                f"摘要生成完成: {len(articles_to_summarize)} 篇, "
+                f"双语摘要生成完成: {len(articles_to_summarize)} 篇, "
                 f"耗时 {summary_duration:.2f} 秒, "
                 f"平均 {summary_duration / len(articles_to_summarize):.2f} 秒/篇"
             )

@@ -16,6 +16,9 @@ AI-RSS-Hub is an intelligent RSS feed aggregator that automatically fetches RSS 
 - 🚀 **Production Ready** - systemd service support, auto-restart, logging
 - 🌐 **Multi-LLM Support** - OpenAI, DeepSeek, Gemini, and more
 - 📊 **RESTful API** - Complete API for client integration
+- 📅 **Date Filtering** - Query articles by specific date or date ranges (NEW!)
+- 📈 **API Monitoring** - Built-in request tracking and statistics (NEW!)
+- 🌍 **Bilingual Summaries** - Chinese and English summaries for language learning
 
 ---
 
@@ -96,6 +99,8 @@ The API will be available at: `http://localhost:8000`
 | [💻 Client Usage Guide](docs/guides/CLIENT_USAGE_GUIDE.md) | How to use the API |
 | [⚡ Quick Start for Clients](docs/guides/QUICK_START_CLIENT.md) | Fast-track client integration |
 | [📮 Postman Collection](docs/guides/POSTMAN_GUIDE.md) | API testing with Postman |
+| [📅 Date Filtering Guide](docs/API_DATE_FILTERING_GUIDE.md) | **NEW**: Query articles by date and date ranges |
+| [📊 API Monitoring Guide](docs/API_MONITORING_GUIDE.md) | **NEW**: Monitor API usage and performance |
 | [📝 Project Understanding](docs/development/PROJECT_UNDERSTANDING.md) | Architecture and design |
 | [🔐 Security Guide](config/env/.env.security) | Security best practices |
 
@@ -141,7 +146,17 @@ AI-RSS-Hub/
 ### Get Articles
 
 ```bash
+# Get latest 10 articles
 curl http://localhost:8000/api/articles?limit=10
+
+# Get articles from a specific date (NEW!)
+curl "http://localhost:8000/api/articles?date=2026-01-05"
+
+# Get articles from a date range (NEW!)
+curl "http://localhost:8000/api/articles?start_date=2026-01-01&end_date=2026-01-05"
+
+# Get articles from the last 7 days
+curl "http://localhost:8000/api/articles?days=7"
 ```
 
 ### Add RSS Feed (Requires Authentication)

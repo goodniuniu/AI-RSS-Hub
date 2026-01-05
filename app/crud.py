@@ -74,6 +74,9 @@ def get_articles(
     limit: int = 50,
     category: Optional[str] = None,
     days: Optional[int] = None,
+    date: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
 ) -> List[Article]:
     """
     获取文章列表
@@ -83,6 +86,18 @@ def get_articles(
         limit: 返回数量限制
         category: 按分类筛选
         days: 获取最近几天的文章
+        date: 指定具体日期（YYYY-MM-DD 格式）
+        start_date: 开始日期（YYYY-MM-DD 格式）
+        end_date: 结束日期（YYYY-MM-DD 格式）
+
+    Returns:
+        Article 对象列表
+
+    日期过滤优先级:
+        1. date - 如果指定，只返回该日期的文章
+        2. start_date 和 end_date - 如果指定，返回该范围内的文章
+        3. days - 返回最近 N 天的文章
+        4. 无过滤 - 返回所有文章（受 limit 限制）
     """
     statement = select(Article).join(Feed)
 
@@ -90,10 +105,47 @@ def get_articles(
     if category:
         statement = statement.where(Feed.category == category)
 
-    # 按时间筛选
-    if days and days > 0:
+    # 按日期筛选（优先级 1: 指定具体日期）
+    if date:
+        try:
+            target_date = datetime.strptime(date, "%Y-%m-%d").date()
+            # 查询该日期的文章（从当天 00:00:00 到 23:59:59）
+            start_datetime = datetime.combine(target_date, datetime.min.time())
+            end_datetime = datetime.combine(target_date, datetime.max.time())
+            statement = statement.where(
+                Article.published_at >= start_datetime,
+                Article.published_at <= end_datetime
+            )
+            logger.info(f"按日期筛选: {date}")
+        except ValueError as e:
+            logger.error(f"日期格式错误: {date}, {e}")
+            raise ValueError(f"日期格式错误，应为 YYYY-MM-DD 格式: {date}")
+
+    # 按日期范围筛选（优先级 2: 日期范围）
+    elif start_date or end_date:
+        try:
+            if start_date:
+                start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
+                # 设置为当天 00:00:00
+                start_datetime = start_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+                statement = statement.where(Article.published_at >= start_datetime)
+
+            if end_date:
+                end_datetime = datetime.strptime(end_date, "%Y-%m-%d")
+                # 设置为当天 23:59:59
+                end_datetime = end_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
+                statement = statement.where(Article.published_at <= end_datetime)
+
+            logger.info(f"按日期范围筛选: {start_date or '开始'} 至 {end_date or '结束'}")
+        except ValueError as e:
+            logger.error(f"日期格式错误: {e}")
+            raise ValueError(f"日期格式错误，应为 YYYY-MM-DD 格式")
+
+    # 按天数筛选（优先级 3: 最近 N 天）
+    elif days and days > 0:
         cutoff_date = datetime.now() - timedelta(days=days)
         statement = statement.where(Article.published_at >= cutoff_date)
+        logger.info(f"按最近 {days} 天筛选")
 
     # 按发布时间降序排序
     statement = statement.order_by(Article.published_at.desc())
@@ -102,6 +154,7 @@ def get_articles(
     statement = statement.limit(limit)
 
     results = session.exec(statement).all()
+    logger.info(f"查询到 {len(results)} 篇文章")
     return list(results)
 
 

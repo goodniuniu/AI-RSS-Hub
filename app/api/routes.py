@@ -90,6 +90,9 @@ def list_articles(
     limit: int = Query(50, ge=1, le=200, description="返回数量限制"),
     category: Optional[str] = Query(None, description="按分类筛选"),
     days: Optional[int] = Query(None, ge=1, le=365, description="获取最近几天的文章"),
+    date: Optional[str] = Query(None, description="指定具体日期 (YYYY-MM-DD 格式，如 2026-01-05)"),
+    start_date: Optional[str] = Query(None, description="开始日期 (YYYY-MM-DD 格式)"),
+    end_date: Optional[str] = Query(None, description="结束日期 (YYYY-MM-DD 格式)"),
     session: Session = Depends(get_session),
 ):
     """
@@ -99,10 +102,36 @@ def list_articles(
         limit: 返回数量限制（1-200）
         category: 按分类筛选（可选）
         days: 获取最近几天的文章（可选）
+        date: 指定具体日期，格式 YYYY-MM-DD（可选，优先级最高）
+        start_date: 开始日期，格式 YYYY-MM-DD（可选）
+        end_date: 结束日期，格式 YYYY-MM-DD（可选）
         session: 数据库会话
 
     Returns:
-        Article 对象列表（包含 Feed 名称）
+        Article 对象列表（包含 Feed 名称和英文摘要）
+
+    日期过滤说明:
+        1. 使用 date 参数查询特定日期的文章:
+           GET /api/articles?date=2026-01-05
+
+        2. 使用 start_date 和 end_date 查询日期范围:
+           GET /api/articles?start_date=2026-01-01&end_date=2026-01-05
+
+        3. 只指定 start_date，查询从该日期到现在的文章:
+           GET /api/articles?start_date=2026-01-01
+
+        4. 只指定 end_date，查询到该日期为止的文章:
+           GET /api/articles?end_date=2026-01-05
+
+        5. 使用 days 查询最近 N 天的文章:
+           GET /api/articles?days=7
+
+    日期过滤优先级:
+        date > (start_date + end_date) > days > 无过滤
+
+    组合使用:
+        可以与 category 和 limit 组合使用:
+        GET /api/articles?date=2026-01-05&category=tech&limit=20
     """
     try:
         articles = get_articles(
@@ -110,6 +139,9 @@ def list_articles(
             limit=limit,
             category=category,
             days=days,
+            date=date,
+            start_date=start_date,
+            end_date=end_date,
         )
 
         # 转换为响应模型，并添加 feed_name 和 summary_en

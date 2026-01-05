@@ -14,6 +14,7 @@ from app.crud import (
 )
 from app.security.auth import verify_api_token
 from app.security.validators import FeedCreateValidated
+from datetime import datetime, timedelta
 import logging
 
 logger = logging.getLogger(__name__)
@@ -170,3 +171,177 @@ def health_check():
         "status": "ok",
         "message": "AI-RSS-Hub is running",
     }
+
+
+@router.get("/stats")
+def get_api_stats(
+    hours: int = Query(24, ge=1, le=168, description="统计最近几小时的数据"),
+    session: Session = Depends(get_session),
+):
+    """
+    API 使用统计
+
+    提供各端点的调用次数、响应时间、成功率等统计信息
+
+    Args:
+        hours: 统计最近几小时的数据（默认 24 小时，最大 168 小时）
+        session: 数据库会话
+
+    Returns:
+        API 统计信息
+    """
+    try:
+        # 使用原生 SQL 查询统计数据
+        import sqlite3
+        from app.config import settings
+
+        db_path = settings.database_url.replace("sqlite:///", "")
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # 计算时间范围
+        cutoff_time = (datetime.now() - timedelta(hours=hours)).isoformat()
+
+        # 1. 端点统计
+        cursor.execute("""
+            SELECT
+                path,
+                method,
+                COUNT(*) as request_count,
+                AVG(response_time_ms) as avg_response_time,
+                MAX(response_time_ms) as max_response_time,
+                MIN(response_time_ms) as min_response_time,
+                SUM(CASE WHEN status_code < 400 THEN 1 ELSE 0 END) as success_count,
+                SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) as error_count
+            FROM api_request_log
+            WHERE created_at >= ?
+            GROUP BY path, method
+            ORDER BY request_count DESC
+        """, (cutoff_time,))
+
+        endpoints = []
+        for row in cursor.fetchall():
+            (path, method, count, avg_time, max_time, min_time, success_count, error_count) = row
+
+            # 计算成功率
+            success_rate = (success_count / count * 100) if count > 0 else 0
+
+            endpoints.append({
+                "path": path,
+                "method": method,
+                "requests_24h": count,
+                "avg_response_time_ms": round(avg_time, 2) if avg_time else 0,
+                "max_response_time_ms": round(max_time, 2) if max_time else 0,
+                "min_response_time_ms": round(min_time, 2) if min_time else 0,
+                "success_rate": round(success_rate, 2),
+                "success_count": success_count,
+                "error_count": error_count,
+            })
+
+        # 2. 总体统计
+        cursor.execute("""
+            SELECT
+                COUNT(*) as total_requests,
+                AVG(response_time_ms) as avg_response_time,
+                SUM(CASE WHEN status_code < 400 THEN 1 ELSE 0 END) as total_success,
+                SUM(CASE WHEN status_code >= 500 THEN 1 ELSE 0 END) as server_errors,
+                SUM(CASE WHEN status_code >= 400 AND status_code < 500 THEN 1 ELSE 0 END) as client_errors
+            FROM api_request_log
+            WHERE created_at >= ?
+        """, (cutoff_time,))
+
+        total_requests, avg_response_time, total_success, server_errors, client_errors = cursor.fetchone()
+
+        overall_success_rate = (total_success / total_requests * 100) if total_requests > 0 else 0
+
+        # 3. 状态码分布
+        cursor.execute("""
+            SELECT
+                status_code,
+                COUNT(*) as count
+            FROM api_request_log
+            WHERE created_at >= ?
+            GROUP BY status_code
+            ORDER BY count DESC
+        """, (cutoff_time,))
+
+        status_codes = [
+            {"code": code, "count": count}
+            for code, count in cursor.fetchall()
+        ]
+
+        # 4. 最慢的请求
+        cursor.execute("""
+            SELECT
+                path,
+                method,
+                response_time_ms,
+                status_code,
+                created_at
+            FROM api_request_log
+            WHERE created_at >= ?
+            ORDER BY response_time_ms DESC
+            LIMIT 10
+        """, (cutoff_time,))
+
+        slowest_requests = [
+            {
+                "path": path,
+                "method": method,
+                "response_time_ms": round(time_ms, 2),
+                "status_code": status_code,
+                "created_at": created_at
+            }
+            for path, method, time_ms, status_code, created_at in cursor.fetchall()
+        ]
+
+        # 5. 客户端统计
+        cursor.execute("""
+            SELECT
+                client_ip,
+                COUNT(*) as request_count
+            FROM api_request_log
+            WHERE created_at >= ?
+            GROUP BY client_ip
+            ORDER BY request_count DESC
+            LIMIT 10
+        """, (cutoff_time,))
+
+        top_clients = [
+            {"ip": ip, "requests": count}
+            for ip, count in cursor.fetchall()
+        ]
+
+        # 获取系统信息（使用同一连接）
+        cursor.execute("SELECT COUNT(*) FROM feed")
+        active_feeds = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM article")
+        total_articles = cursor.fetchone()[0]
+
+        conn.close()
+
+        return {
+            "period_hours": hours,
+            "generated_at": datetime.now().isoformat(),
+            "endpoints": endpoints,
+            "overall": {
+                "total_requests": total_requests,
+                "avg_response_time_ms": round(avg_response_time, 2) if avg_response_time else 0,
+                "success_rate": round(overall_success_rate, 2),
+                "success_count": total_success,
+                "server_errors": server_errors,
+                "client_errors": client_errors,
+            },
+            "status_codes": status_codes,
+            "slowest_requests": slowest_requests,
+            "top_clients": top_clients,
+            "system": {
+                "active_feeds": active_feeds,
+                "total_articles": total_articles,
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"获取统计信息失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取统计失败: {str(e)}")

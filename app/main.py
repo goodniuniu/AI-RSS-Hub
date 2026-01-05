@@ -12,6 +12,7 @@ from app.config import settings
 from app.security.logger import setup_secure_logging
 from app.security.middleware import SecurityHeadersMiddleware
 from app.security.rate_limiter import get_limiter, RateLimitExceeded
+from app.security.api_monitoring import APIMonitoringMiddleware
 from fastapi import HTTPException
 import logging
 
@@ -87,6 +88,9 @@ app.add_middleware(
 
 # 添加安全响应头中间件
 app.add_middleware(SecurityHeadersMiddleware)
+
+# 添加 API 监控中间件
+app.add_middleware(APIMonitoringMiddleware)
 
 # 配置速率限制
 limiter = get_limiter()

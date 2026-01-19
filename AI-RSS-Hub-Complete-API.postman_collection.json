@@ -1,0 +1,502 @@
+{
+	"info": {
+		"_postman_id": "ai-rss-hub-complete-api",
+		"name": "AI-RSS-Hub 完整 API 集合",
+		"description": "AI-RSS-Hub 完整 API 测试集合 - 智能RSS聚合系统（支持AI双语摘要）\n\n**版本**: 1.0\n**更新日期**: 2026-01-19\n\n## 功能特性\n\n✅ RSS 源管理\n✅ 文章查询（支持多种日期过滤）\n✅ AI 双语摘要\n✅ RSS 2.0 订阅源\n✅ API 统计监控\n✅ 系统状态监控\n\n## 环境变量配置\n\n导入 Collection 后，请配置以下环境变量：\n\n| 变量名 | 示例值 | 说明 |\n|--------|--------|------|\n| base_url | http://localhost:8000 | API 基础 URL |\n| api_token | your_secure_token_here | 管理 API Token |\n\n## 认证说明\n\n公开端点（无需认证）：\n- GET /api/health\n- GET /api/status\n- GET /api/feeds\n- GET /api/articles\n- GET /api/stats\n- GET /api/rss*\n\n受保护端点（需要 X-API-Token）：\n- POST /api/feeds\n- POST /api/feeds/fetch",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "ai-rss-hub"
+	},
+	"item": [
+		{
+			"name": "1️⃣ 健康检查与系统状态",
+			"item": [
+				{
+					"name": "健康检查",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/health",
+							"host": ["{{base_url}}"],
+							"path": ["api", "health"]
+						},
+						"description": "检查 API 服务是否正常运行\n\n**响应示例**:\n```json\n{\n  \"status\": \"ok\",\n  \"message\": \"AI-RSS-Hub is running\"\n}\n```\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "系统状态",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "status"]
+						},
+						"description": "获取详细的系统状态信息\n\n**响应示例**:\n```json\n{\n  \"scheduler_running\": true,\n  \"next_run_time\": \"2026-01-19T12:00:00\",\n  \"database_status\": \"ok\",\n  \"total_feeds\": 7,\n  \"total_articles\": 2822,\n  \"last_fetch_stats\": {\n    \"total_feeds\": 7,\n    \"total_articles\": 129\n  }\n}\n```\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "API 使用统计（最近24小时）",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/stats?hours=24",
+							"host": ["{{base_url}}"],
+							"path": ["api", "stats"],
+							"query": [
+								{
+									"key": "hours",
+									"value": "24",
+									"description": "统计最近几小时的数据（1-168）"
+								}
+							]
+						},
+						"description": "获取 API 使用统计信息\n\n**返回数据**:\n- 各端点调用次数和响应时间\n- 成功率统计\n- 状态码分布\n- 最慢的 10 个请求\n- TOP 10 客户端 IP\n- 系统信息（Feed 数、文章数）\n\n**响应示例**:\n```json\n{\n  \"period_hours\": 24,\n  \"generated_at\": \"2026-01-19T10:58:07.819442\",\n  \"endpoints\": [\n    {\n      \"path\": \"/api/articles\",\n      \"method\": \"GET\",\n      \"requests_24h\": 7,\n      \"avg_response_time_ms\": 20.02,\n      \"max_response_time_ms\": 42.49,\n      \"min_response_time_ms\": 12.66,\n      \"success_rate\": 100.0\n    }\n  ],\n  \"overall\": {\n    \"total_requests\": 33,\n    \"avg_response_time_ms\": 4.97,\n    \"success_rate\": 90.91\n  },\n  \"system\": {\n    \"active_feeds\": 7,\n    \"total_articles\": 2822\n  }\n}\n```\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "API 使用统计（最近1小时）",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/stats?hours=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "stats"],
+							"query": [
+								{
+									"key": "hours",
+									"value": "1",
+									"description": "统计最近1小时"
+								}
+							]
+						},
+						"description": "获取最近 1 小时的 API 统计\n\n**无需认证** ✅"
+					},
+					"response": []
+				}
+			],
+			"description": "基础健康检查和系统状态监控"
+		},
+		{
+			"name": "2️⃣ RSS 源管理",
+			"item": [
+				{
+					"name": "获取所有 RSS 源",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/feeds",
+							"host": ["{{base_url}}"],
+							"path": ["api", "feeds"]
+						},
+						"description": "获取系统中所有的 RSS 源\n\n**响应示例**:\n```json\n[\n  {\n    \"id\": 1,\n    \"name\": \"36Kr\",\n    \"url\": \"https://36kr.com/feed\",\n    \"category\": \"tech-china\",\n    \"is_active\": true,\n    \"created_at\": \"2026-01-01T00:00:00\",\n    \"updated_at\": \"2026-01-19T10:00:00\"\n  }\n]\n```\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "仅获取活跃的 RSS 源",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/feeds?active_only=true",
+							"host": ["{{base_url}}"],
+							"path": ["api", "feeds"],
+							"query": [
+								{
+									"key": "active_only",
+									"value": "true",
+									"description": "仅返回活跃的源（is_active=true）"
+								}
+							]
+						},
+						"description": "仅获取当前活跃（启用）的 RSS 源\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "添加新 RSS 源 🔒",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Token",
+								"value": "{{api_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"TechCrunch\",\n    \"url\": \"https://techcrunch.com/feed/\",\n    \"category\": \"tech\",\n    \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/feeds",
+							"host": ["{{base_url}}"],
+							"path": ["api", "feeds"]
+						},
+						"description": "添加新的 RSS 源到系统\n\n**请求参数**:\n- `name` (必填): RSS 源名称（1-200字符）\n- `url` (必填): RSS Feed URL（1-2048字符）\n- `category` (可选): 分类（默认: tech）\n- `is_active` (可选): 是否启用（默认: true）\n\n**响应示例**:\n```json\n{\n  \"id\": 8,\n  \"name\": \"TechCrunch\",\n  \"url\": \"https://techcrunch.com/feed/\",\n  \"category\": \"tech\",\n  \"is_active\": true,\n  \"created_at\": \"2026-01-19T11:00:00\"\n}\n```\n\n**错误响应**:\n```json\n{\n  \"detail\": \"RSS 源已存在: https://techcrunch.com/feed/\"\n}\n```\n\n**需要认证**: 在 Headers 中添加 `X-API-Token: {{api_token}}"
+					},
+					"response": []
+				},
+				{
+					"name": "手动触发 RSS 抓取 🔒",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Token",
+								"value": "{{api_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/feeds/fetch",
+							"host": ["{{base_url}}"],
+							"path": ["api", "feeds", "fetch"]
+						},
+						"description": "手动触发所有 RSS 源的抓取任务\n\n**响应示例**:\n```json\n{\n  \"status\": \"success\",\n  \"message\": \"成功抓取 7 个源，获取 129 篇新文章\",\n  \"stats\": {\n    \"total_feeds\": 7,\n    \"total_articles\": 129,\n    \"success_feeds\": 7,\n    \"failed_feeds\": 0\n  }\n}\n```\n\n**注意事项**:\n- ⏱️ 此操作可能需要较长时间（取决于源数量）\n- 📊 会自动为所有新文章生成 AI 双语摘要\n- ⚠️ 如果文章较多，可能会触发 LLM API 速率限制\n\n**需要认证** 🔒"
+					},
+					"response": []
+				}
+			],
+			"description": "RSS 源的增删改查操作"
+		},
+		{
+			"name": "3️⃣ 文章查询",
+			"item": [
+				{
+					"name": "获取最新文章（默认50篇）",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles",
+							"host": ["{{base_url}}"],
+							"path": ["api", "articles"]
+						},
+						"description": "获取最新的文章列表（默认返回50篇）\n\n**响应示例**:\n```json\n[\n  {\n    \"id\": 651,\n    \"title\": \"国恩科技递表港交所\",\n    \"link\": \"https://36kr.com/...\",\n    \"summary\": \"国恩科技向港交所提交上市申请...\",\n    \"summary_en\": \"Guoen Technology has submitted...\",\n    \"published_at\": \"2026-01-09T11:27:57\",\n    \"feed_id\": 6,\n    \"feed_name\": \"36Kr\",\n    \"created_at\": \"2026-01-09T19:33:24\"\n  }\n]\n```\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "获取最新10篇文章",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles?limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "articles"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						},
+						"description": "获取最新 10 篇文章\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "按指定日期查询文章",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles?date=2026-01-09",
+							"host": ["{{base_url}}"],
+							"path": ["api", "articles"],
+							"query": [
+								{
+									"key": "date",
+									"value": "2026-01-09",
+									"description": "具体日期（YYYY-MM-DD 格式）"
+								}
+							]
+						},
+						"description": "查询指定日期的文章\n\n**优先级**: date > (start_date + end_date) > days > 无过滤\n\n**示例**:\n- `date=2026-01-09` - 查询 2026年1月9日的文章\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "按日期范围查询文章",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles?start_date=2026-01-01&end_date=2026-01-09",
+							"host": ["{{base_url}}"],
+							"path": ["api", "articles"],
+							"query": [
+								{
+									"key": "start_date",
+									"value": "2026-01-01",
+									"description": "开始日期（YYYY-MM-DD）"
+								},
+								{
+									"key": "end_date",
+									"value": "2026-01-09",
+									"description": "结束日期（YYYY-MM-DD）"
+								}
+							]
+						},
+						"description": "查询指定日期范围内的文章\n\n**示例**:\n- `start_date=2026-01-01&end_date=2026-01-09` - 2026年1月1日至1月9日\n- `start_date=2026-01-01` - 从2026年1月1日至今\n- `end_date=2026-01-09` - 至2026年1月9日\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "查询最近N天的文章",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles?days=7&limit=50",
+							"host": ["{{base_url}}"],
+							"path": ["api", "articles"],
+							"query": [
+								{
+									"key": "days",
+									"value": "7",
+									"description": "最近几天（1-365）"
+								},
+								{
+									"key": "limit",
+									"value": "50"
+								}
+							]
+						},
+						"description": "查询最近 N 天的文章\n\n**示例**:\n- `days=7` - 最近7天\n- `days=30` - 最近30天\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "按分类查询文章",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles?category=tech&limit=20",
+							"host": ["{{base_url}}"],
+							"path": ["api", "articles"],
+							"query": [
+								{
+									"key": "category",
+									"value": "tech",
+									"description": "分类名称"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						},
+						"description": "按分类过滤文章\n\n**可选分类**:\n- `tech` - 科技\n- `tech-china` - 中国科技\n- `science` - 科学\n- `science-space` - 空间科学\n- `development` - 开发\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "组合查询：分类+日期范围",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/articles?category=tech&days=7&limit=100",
+							"host": ["{{base_url}}"],
+							"path": ["api", "articles"],
+							"query": [
+								{
+									"key": "category",
+									"value": "tech"
+								},
+								{
+									"key": "days",
+									"value": "7"
+								},
+								{
+									"key": "limit",
+									"value": "100"
+								}
+							]
+						},
+						"description": "组合多个过滤条件查询文章\n\n**示例**: 查询最近7天的科技类文章，最多100篇\n\n**参数优先级**: date > (start_date + end_date) > days\n\n**无需认证** ✅"
+					},
+					"response": []
+				}
+			],
+			"description": "文章查询与过滤（支持多种日期过滤方式）"
+		},
+		{
+			"name": "4️⃣ RSS 订阅源",
+			"item": [
+				{
+					"name": "RSS 订阅（中文摘要）",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/rss+xml"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/rss",
+							"host": ["{{base_url}}"],
+							"path": ["api", "rss"]
+						},
+						"description": "订阅中文摘要 RSS 源\n\n**格式**: RSS 2.0\n**编码**: UTF-8\n**内容类型**: application/rss+xml\n\n**支持的阅读器**:\n- Feedly\n- Inoreader\n- NetNewsWire\n- NewsBlur\n- 所有支持 RSS 2.0 的阅读器\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "RSS 订阅（英文摘要）",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/rss+xml"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/rss/en",
+							"host": ["{{base_url}}"],
+							"path": ["api", "rss", "en"]
+						},
+						"description": "订阅英文摘要 RSS 源\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "RSS 订阅（双语混合）",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/rss+xml"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/rss/bilingual",
+							"host": ["{{base_url}}"],
+							"path": ["api", "rss", "bilingual"]
+						},
+						"description": "订阅中英文双语混合的 RSS 源\n\n**摘要格式**:\n```html\n<strong>中文摘要：</strong><br/>\n中文内容...<br/><br/>\n<strong>English Summary:</strong><br/>\nEnglish content...\n```\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "RSS 订阅（按分类：科技）",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/rss+xml"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/rss?category=tech",
+							"host": ["{{base_url}}"],
+							"path": ["api", "rss"],
+							"query": [
+								{
+									"key": "category",
+									"value": "tech",
+									"description": "分类名称"
+								}
+							]
+						},
+						"description": "订阅指定分类的 RSS 源（中文摘要）\n\n**可用分类**:\n- `tech` - 科技\n- `science` - 科学\n- `development` - 开发\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "RSS 订阅（最近7天，最多100篇）",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/rss+xml"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/rss?days=7&limit=100",
+							"host": ["{{base_url}}"],
+							"path": ["api", "rss"],
+							"query": [
+								{
+									"key": "days",
+									"value": "7"
+								},
+								{
+									"key": "limit",
+									"value": "100"
+								}
+							]
+						},
+						"description": "订阅最近 N 天的文章 RSS 源\n\n**参数**:\n- `days`: 最近几天（1-30）\n- `limit`: 最多返回几篇（1-200）\n\n**无需认证** ✅"
+					},
+					"response": []
+				},
+				{
+					"name": "RSS 分类订阅（科技类，英文）",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/rss+xml"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/rss/category/tech?summary_type=en",
+							"host": ["{{base_url}}"],
+							"path": ["api", "rss", "category", "tech"],
+							"query": [
+								{
+									"key": "summary_type",
+									"value": "en",
+									"description": "摘要类型: zh/en/bilingual"
+								}
+							]
+						},
+						"description": "按分类路径订阅 RSS（英文摘要）\n\n**路径格式**: `/api/rss/category/{category}`\n\n**查询参数**:\n- `summary_type`: zh（默认）| en | bilingual\n- `days`: 最近几天（1-30）\n- `limit`: 最多返回几篇（1-200）\n\n**无需认证** ✅"
+					},
+					"response": []
+				}
+			],
+			"description": "RSS 2.0 订阅源（支持三种摘要语言和灵活过滤）"
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string",
+			"description": "API 基础 URL"
+		},
+		{
+			"key": "api_token",
+			"value": "your_secure_token_here",
+			"type": "string",
+			"description": "管理 API Token（用于添加Feed和手动抓取）"
+		}
+	]
+}

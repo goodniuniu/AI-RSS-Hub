@@ -92,5 +92,7 @@ class ArticleResponse(SQLModel):
     summary_en: Optional[str] = None  # 英文摘要
     published_at: Optional[datetime]
     feed_id: int
-    feed_name: Optional[str] = None  # 额外字段，用于显示源名称
+    feed_name: Optional[str] = None  # 来源名称
+    feed_category: Optional[str] = None  # 来源分类
+    feed_url: Optional[str] = None  # 来源RSS URL
     created_at: datetime

@@ -14,7 +14,7 @@ sys.path.insert(0, str(project_root))
 from sqlmodel import Session, select
 from app.database import engine
 from app.models import Article
-from app.services.summarizer import summarize_text_async
+from app.services.summarizer import summarize_article_bilingual
 from app.config import settings
 import logging
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 async def regenerate_summaries(limit: int = None, force: bool = False, concurrency: int = 2, delay: float = 1.0):
     """
-    重新生成文章摘要
+    重新生成文章摘要（中英文双语）
 
     Args:
         limit: 最多处理的文章数量（None 表示处理全部）
@@ -32,7 +32,7 @@ async def regenerate_summaries(limit: int = None, force: bool = False, concurren
         concurrency: 并发数量（默认 2，避免触发速率限制）
         delay: 每批之间的延迟秒数（默认 1 秒）
     """
-    logger.info("=== 开始重新生成摘要 ===")
+    logger.info("=== 开始重新生成摘要（中英文双语） ===")
 
     with Session(engine) as session:
         # 查询需要处理的文章
@@ -62,6 +62,7 @@ async def regenerate_summaries(limit: int = None, force: bool = False, concurren
 
         success_count = 0
         failed_count = 0
+        skip_count = 0
 
         for i, article in enumerate(articles, 1):
             try:
@@ -69,23 +70,40 @@ async def regenerate_summaries(limit: int = None, force: bool = False, concurren
 
                 # 检查是否有内容
                 if not article.content or len(article.content.strip()) < 10:
-                    logger.warning(f"  内容过短，跳过")
+                    logger.warning(f"  ⏭️  内容过短，跳过")
                     article.summary = "内容过短，无需总结"
                     session.add(article)
                     session.commit()
+                    skip_count += 1
                     continue
 
-                # 生成摘要
-                summary = await summarize_text_async(article.content, semaphore)
+                # 生成双语摘要
+                zh_summary, en_summary = await summarize_article_bilingual(
+                    article.title, article.content, semaphore
+                )
 
-                if summary and "失败" not in summary and "异常" not in summary:
-                    article.summary = summary
+                # 判断生成是否成功（检查是否包含错误标记）
+                is_success = (
+                    zh_summary and
+                    not zh_summary.startswith("未配置") and
+                    not zh_summary.startswith("内容过短") and
+                    not zh_summary.startswith("总结生成") and  # "总结生成超时/失败/异常"
+                    not "生成超时" in zh_summary and
+                    not "生成失败" in zh_summary and
+                    not "生成异常" in zh_summary
+                )
+
+                if is_success:
+                    article.summary = zh_summary
+                    article.summary_en = en_summary
                     session.add(article)
                     session.commit()
                     success_count += 1
-                    logger.info(f"  ✅ 成功: {summary[:50]}...")
+                    logger.info(f"  ✅ 成功 | 中文: {len(zh_summary)}字 | 英文: {len(en_summary)}词")
+                    logger.debug(f"     中文: {zh_summary[:40]}...")
+                    logger.debug(f"     英文: {en_summary[:40]}...")
                 else:
-                    logger.warning(f"  ⚠️  摘要生成失败: {summary}")
+                    logger.warning(f"  ⚠️  失败: {zh_summary[:50] if zh_summary else 'NULL'}")
                     failed_count += 1
 
                 # 添加延迟避免速率限制（每 N 篇暂停一次）
@@ -102,6 +120,7 @@ async def regenerate_summaries(limit: int = None, force: bool = False, concurren
 
         logger.info("=== 摘要生成完成 ===")
         logger.info(f"成功: {success_count} 篇")
+        logger.info(f"跳过: {skip_count} 篇")
         logger.info(f"失败: {failed_count} 篇")
 
 

@@ -14,6 +14,7 @@ from app.crud import (
 )
 from app.security.auth import verify_api_token
 from app.security.validators import FeedCreateValidated
+from app.config import settings
 from datetime import datetime, timedelta
 import logging
 
@@ -218,7 +219,7 @@ def detailed_health_check(session: Session = Depends(get_session)):
     """
     from app.services.summarizer import test_llm_connection
     from app.scheduler import get_scheduler_status
-    from app.crud import get_all_feeds, get_all_articles
+    from app.crud import get_all_feeds, get_articles
     from datetime import datetime, timedelta
     import time
 
@@ -243,13 +244,14 @@ def detailed_health_check(session: Session = Depends(get_session)):
     try:
         db_start = time.time()
         feeds = get_all_feeds(session, active_only=True)
-        articles_count = len(get_all_articles(session, limit=1))
+        articles_count = len(get_articles(session, limit=1))
         db_duration = time.time() - db_start
 
         # 获取最近24小时的文章数
         yesterday = datetime.now() - timedelta(days=1)
+        from sqlalchemy import text
         recent_articles = session.execute(
-            f"SELECT COUNT(*) FROM article WHERE created_at >= '{yesterday.isoformat()}'"
+            text(f"SELECT COUNT(*) FROM article WHERE created_at >= '{yesterday.isoformat()}'")
         ).scalar() or 0
 
         health_status["components"]["database"] = {

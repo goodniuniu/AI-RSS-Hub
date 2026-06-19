@@ -190,6 +190,7 @@ def get_existing_feeds() -> list:
 
 
 def main():
+    global API_BASE_URL
     parser = argparse.ArgumentParser(description="批量添加推荐 RSS 源")
     parser.add_argument("--category", help="只添加指定分类的源")
     parser.add_argument("--dry-run", action="store_true", help="只显示将要添加的源，不实际添加")
@@ -197,7 +198,6 @@ def main():
     args = parser.parse_args()
 
     # 更新 API URL
-    global API_BASE_URL
     API_BASE_URL = args.api_url
 
     print("=" * 60)

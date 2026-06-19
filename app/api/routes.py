@@ -205,6 +205,89 @@ def health_check():
     }
 
 
+@router.get("/health/detailed")
+def detailed_health_check(session: Session = Depends(get_session)):
+    """
+    详细健康检查接口
+
+    检查各个组件的状态：
+    - LLM API 连接
+    - 数据库连接
+    - 调度器状态
+    - 最近抓取统计
+    """
+    from app.services.summarizer import test_llm_connection
+    from app.scheduler import get_scheduler_status
+    from app.crud import get_all_feeds, get_all_articles
+    from datetime import datetime, timedelta
+    import time
+
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "components": {}
+    }
+
+    # 1. LLM API 检查
+    llm_start = time.time()
+    llm_ok = test_llm_connection()
+    llm_duration = time.time() - llm_start
+    health_status["components"]["llm"] = {
+        "status": "ok" if llm_ok else "error",
+        "response_time_ms": round(llm_duration * 1000, 2),
+        "configured": bool(settings.openai_api_key),
+        "model": settings.openai_model,
+    }
+
+    # 2. 数据库检查
+    try:
+        db_start = time.time()
+        feeds = get_all_feeds(session, active_only=True)
+        articles_count = len(get_all_articles(session, limit=1))
+        db_duration = time.time() - db_start
+
+        # 获取最近24小时的文章数
+        yesterday = datetime.now() - timedelta(days=1)
+        recent_articles = session.execute(
+            f"SELECT COUNT(*) FROM article WHERE created_at >= '{yesterday.isoformat()}'"
+        ).scalar() or 0
+
+        health_status["components"]["database"] = {
+            "status": "ok",
+            "response_time_ms": round(db_duration * 1000, 2),
+            "active_feeds": len(feeds),
+            "recent_articles_24h": recent_articles,
+        }
+    except Exception as e:
+        health_status["components"]["database"] = {
+            "status": "error",
+            "error": str(e)
+        }
+
+    # 3. 调度器检查
+    scheduler_status = get_scheduler_status()
+    health_status["components"]["scheduler"] = {
+        "status": "running" if scheduler_status["running"] else "stopped",
+        "jobs": scheduler_status.get("jobs", []),
+        "fetch_interval_hours": settings.fetch_interval_hours,
+    }
+
+    # 4. 配置信息
+    health_status["config"] = {
+        "max_concurrent_summaries": settings.max_concurrent_summaries,
+        "summary_max_length": settings.summary_max_length,
+        "retry_attempts": settings.summary_retry_attempts,
+    }
+
+    # 判断整体健康状态
+    if health_status["components"]["llm"]["status"] == "error":
+        health_status["status"] = "degraded"
+    if health_status["components"]["database"]["status"] == "error":
+        health_status["status"] = "unhealthy"
+
+    return health_status
+
+
 @router.get("/stats")
 def get_api_stats(
     hours: int = Query(24, ge=1, le=168, description="统计最近几小时的数据"),

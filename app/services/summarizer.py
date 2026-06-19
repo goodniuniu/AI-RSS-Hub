@@ -8,6 +8,13 @@ from app.config import settings
 import logging
 import asyncio
 import re
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log
+)
 
 logger = logging.getLogger(__name__)
 
@@ -231,9 +238,15 @@ async def summarize_article_bilingual(
         return await _do_summarize_bilingual(title, content)
 
 
+@retry(
+    stop=stop_after_attempt(settings.summary_retry_attempts),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((APIError, APITimeoutError)),
+    before_sleep=before_sleep_log(logger, logging.INFO),
+)
 async def _do_summarize_bilingual(title: str, content: str) -> tuple[str, str]:
     """
-    实际执行双语摘要生成的内部函数
+    实际执行双语摘要生成的内部函数（带重试机制）
     """
     try:
         # 初始化异步 OpenAI 客户端

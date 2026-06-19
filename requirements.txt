@@ -23,6 +23,7 @@ pydantic-settings==2.6.1
 
 # 工具库
 python-dotenv==1.0.1
+tenacity==9.0.0  # 重试机制库
 
 # HTTP 客户端（用于 RSS 请求）
 httpx==0.27.2

@@ -23,9 +23,11 @@ class Settings(BaseSettings):
     request_timeout: int = 30  # HTTP 请求超时时间（秒）
 
     # AI 总结配置
-    summary_max_length: int = 100  # 总结最大长度
-    llm_timeout: int = 30  # LLM API 超时时间（秒）
-    max_concurrent_summaries: int = 2  # 并发生成摘要的最大数量（降低以避免速率限制）
+    summary_max_length: int = 150  # 总结最大长度（增加以获取更详细摘要）
+    llm_timeout: int = 45  # LLM API 超时时间（秒，增加以避免超时）
+    max_concurrent_summaries: int = 3  # 并发生成摘要的最大数量（优化后提高吞吐量）
+    summary_retry_attempts: int = 3  # API 调用失败时的重试次数
+    summary_retry_delay: int = 2  # 重试延迟（秒）
 
     # ========== 安全配置 ==========
     # API Token - 用于管理操作认证

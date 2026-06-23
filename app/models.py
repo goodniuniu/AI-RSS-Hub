@@ -41,6 +41,7 @@ class Article(SQLModel, table=True):
     content: Optional[str] = Field(default=None, description="原始内容")
     summary: Optional[str] = Field(default=None, description="AI 中文总结")
     summary_en: Optional[str] = Field(default=None, description="AI 英文总结")
+    qr_code_url: Optional[str] = Field(default=None, description="二维码图片URL")
     published_at: Optional[datetime] = Field(default=None, index=True, description="发布时间")
     feed_id: int = Field(foreign_key="feed.id", description="所属 RSS 源 ID")
     created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
@@ -90,6 +91,7 @@ class ArticleResponse(SQLModel):
     link: str
     summary: Optional[str]
     summary_en: Optional[str] = None  # 英文摘要
+    qr_code_url: Optional[str] = None  # 二维码图片URL
     published_at: Optional[datetime]
     feed_id: int
     feed_name: Optional[str] = None  # 来源名称

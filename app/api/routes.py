@@ -145,7 +145,7 @@ def list_articles(
             end_date=end_date,
         )
 
-        # 转换为响应模型，并添加 feed_name、summary_en、feed_category、feed_url
+        # 转换为响应模型，并添加 feed_name、summary_en、feed_category、feed_url、qr_code_url
         response_articles = []
         for article in articles:
             article_dict = {
@@ -154,6 +154,7 @@ def list_articles(
                 "link": article.link,
                 "summary": article.summary,
                 "summary_en": article.summary_en,  # 英文摘要
+                "qr_code_url": article.qr_code_url,  # 二维码URL
                 "published_at": article.published_at,
                 "feed_id": article.feed_id,
                 "feed_name": article.feed.name if article.feed else None,

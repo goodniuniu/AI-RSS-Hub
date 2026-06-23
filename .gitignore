@@ -56,3 +56,4 @@ htmlcov/
 
 # APScheduler
 *.db-journal
+static/qrcodes/*.png

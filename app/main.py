@@ -3,8 +3,10 @@ FastAPI 主应用入口
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from sqlmodel import Session
+from pathlib import Path
 from app.database import create_db_and_tables, init_default_feeds, engine
 from app.api.routes import router
 from app.scheduler import start_scheduler, stop_scheduler, get_scheduler_status
@@ -15,6 +17,7 @@ from app.security.rate_limiter import get_limiter, RateLimitExceeded
 from app.security.api_monitoring import APIMonitoringMiddleware
 from fastapi import HTTPException
 import logging
+import os
 
 # 配置安全日志
 setup_secure_logging()
@@ -108,6 +111,18 @@ if limiter:
 
 # 注册路由
 app.include_router(router, prefix="/api", tags=["RSS"])
+
+# 挂载静态文件目录（二维码图片）
+static_dir = Path("static")
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+    logger.info(f"静态文件目录已挂载: {static_dir.absolute()}")
+else:
+    # 创建static目录
+    static_dir.mkdir(exist_ok=True)
+    (static_dir / "qrcodes").mkdir(exist_ok=True)
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+    logger.info(f"静态文件目录已创建并挂载: {static_dir.absolute()}")
 
 
 @app.get("/")

@@ -118,6 +118,18 @@ async def fetch_feed(feed: Feed, session: Session) -> int:
                 # 保存到数据库
                 article = create_article(session, article)
 
+                # 为文章生成二维码
+                try:
+                    from app.services.qr_generator import generate_qr_code_url
+                    qr_url = generate_qr_code_url(article.id, article.link)
+                    if qr_url:
+                        article.qr_code_url = qr_url
+                        session.add(article)
+                        session.commit()
+                        logger.debug(f"生成二维码: {qr_url}")
+                except Exception as qr_error:
+                    logger.warning(f"生成二维码失败: {qr_error}")
+
                 # 如果有内容且配置了 API Key，收集起来待生成摘要
                 if settings.openai_api_key and content and len(content.strip()) >= 10:
                     articles_to_summarize.append((article, content))

@@ -9,8 +9,13 @@ from app.database import engine
 from app.services.rss_fetcher import fetch_all_feeds
 from app.config import settings
 import logging
+import signal
+import threading
 
 logger = logging.getLogger(__name__)
+
+# 超时时间（秒）
+FETCH_TIMEOUT = 1800  # 30分钟
 
 # 全局调度器实例
 scheduler = BackgroundScheduler()
@@ -18,16 +23,37 @@ scheduler = BackgroundScheduler()
 
 def scheduled_fetch_job():
     """
-    定时任务：抓取所有 RSS 源
+    定时任务：抓取所有 RSS 源（带超时保护）
     """
     logger.info("=== 定时任务开始执行 ===")
 
-    try:
-        with Session(engine) as session:
-            stats = fetch_all_feeds(session)
-            logger.info(f"定时任务完成: {stats}")
-    except Exception as e:
-        logger.error(f"定时任务执行失败: {e}")
+    # 创建结果容器
+    result = {"completed": False, "stats": None, "error": None}
+
+    def fetch_with_timeout():
+        try:
+            with Session(engine) as session:
+                stats = fetch_all_feeds(session)
+                result["completed"] = True
+                result["stats"] = stats
+        except Exception as e:
+            logger.error(f"定时任务执行失败: {e}")
+            result["error"] = str(e)
+
+    # 在新线程中执行
+    thread = threading.Thread(target=fetch_with_timeout)
+    thread.daemon = True
+    thread.start()
+
+    # 等待完成或超时
+    thread.join(timeout=FETCH_TIMEOUT)
+
+    if thread.is_alive():
+        logger.warning(f"定时任务超时（超过 {FETCH_TIMEOUT} 秒），将被强制终止")
+    elif result["completed"]:
+        logger.info(f"定时任务完成: {result['stats']}")
+    elif result["error"]:
+        logger.error(f"定时任务执行失败: {result['error']}")
 
     logger.info("=== 定时任务执行结束 ===")
 
@@ -48,6 +74,8 @@ def start_scheduler():
             id="rss_fetch_job",
             name="RSS 抓取任务",
             replace_existing=True,
+            max_instances=1,  # 防止任务重叠执行
+            misfire_grace_time=300,  # 错过任务的宽限时间（秒）
         )
 
         # 启动调度器

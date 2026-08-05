@@ -115,20 +115,23 @@ async def fetch_feed(feed: Feed, session: Session) -> int:
                     feed_id=feed.id,
                 )
 
-                # 保存到数据库
-                article = create_article(session, article)
-
-                # 为文章生成二维码
+                # 用 SAVEPOINT 包裹单条：flush 取得 article.id（WAL + synchronous=NORMAL
+                # 下不 fsync），二维码文件名依赖 id 故必须在 flush 后生成；该条失败仅回滚自身。
                 try:
-                    from app.services.qr_generator import generate_qr_code_url
-                    qr_url = generate_qr_code_url(article.id, article.link)
-                    if qr_url:
-                        article.qr_code_url = qr_url
+                    with session.begin_nested():
                         session.add(article)
-                        session.commit()
-                        logger.debug(f"生成二维码: {qr_url}")
-                except Exception as qr_error:
-                    logger.warning(f"生成二维码失败: {qr_error}")
+                        session.flush()
+                        try:
+                            from app.services.qr_generator import generate_qr_code_url
+                            qr_url = generate_qr_code_url(article.id, article.link)
+                            if qr_url:
+                                article.qr_code_url = qr_url
+                                logger.debug(f"生成二维码: {qr_url}")
+                        except Exception as qr_error:
+                            logger.warning(f"生成二维码失败: {qr_error}")
+                except Exception as save_error:
+                    logger.error(f"保存文章失败，跳过该条: {save_error}")
+                    continue
 
                 # 如果有内容且配置了 API Key，收集起来待生成摘要
                 if settings.openai_api_key and content and len(content.strip()) >= 10:
@@ -141,44 +144,65 @@ async def fetch_feed(feed: Feed, session: Session) -> int:
                 logger.error(f"处理条目失败: {e}")
                 continue
 
-        # 并发生成所有文章的摘要（自动检测语言）
+        # 分批并发生成摘要：限制单批同时驻留的原文/响应以压低内存峰值，每批提交一次。
         if articles_to_summarize:
-            logger.info(f"开始并发生成 {len(articles_to_summarize)} 篇文章的摘要（自动检测语言）...")
+            batch_size = max(1, settings.summary_batch_size)
+            total = len(articles_to_summarize)
+            n_batches = (total + batch_size - 1) // batch_size
+            logger.info(
+                f"开始分批并发生成 {total} 篇文章的摘要"
+                f"（每批 {batch_size} 篇，共 {n_batches} 批，自动检测语言）..."
+            )
             summary_start_time = time.time()
 
-            # 创建信号量控制并发数量
+            # 信号量在整个摘要阶段共享，跨批次约束 LLM 并发
             semaphore = asyncio.Semaphore(settings.max_concurrent_summaries)
 
-            # 创建所有摘要任务（自动检测语言）
-            tasks = []
-            for article, content in articles_to_summarize:
-                task = summarize_article_auto(article.title, content, semaphore)
-                tasks.append((article, task))
+            for batch_idx in range(n_batches):
+                start = batch_idx * batch_size
+                batch = articles_to_summarize[start:start + batch_size]
 
-            # 并发执行所有双语摘要任务
-            summaries = await asyncio.gather(*[task for _, task in tasks])
+                # 并发生成本批摘要（自动检测语言）；return_exceptions 隔离单条失败
+                tasks = [
+                    summarize_article_auto(article.title, content, semaphore)
+                    for article, content in batch
+                ]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            # 批量更新数据库（中英文摘要）
-            for (article, _), (zh_summary, en_summary) in zip(tasks, summaries):
-                if zh_summary and "失败" not in zh_summary and "异常" not in zh_summary:
-                    article.summary = zh_summary          # 中文摘要
-                    article.summary_en = en_summary      # 英文摘要
-                    session.add(article)
+                for (article, _), result in zip(batch, results):
+                    if isinstance(result, Exception):
+                        logger.error(f"摘要生成异常，跳过该篇: {result}")
+                        continue
+                    zh_summary, en_summary = result
+                    if zh_summary and "失败" not in zh_summary and "异常" not in zh_summary:
+                        article.summary = zh_summary          # 中文摘要
+                        article.summary_en = en_summary       # 英文摘要
+                        session.add(article)
 
-            session.commit()
+                # 每批提交一次（WAL + synchronous=NORMAL 下不 fsync，仅推进事务、释放引用）
+                session.commit()
+                logger.info(f"摘要批次 {batch_idx + 1}/{n_batches} 完成（{len(batch)} 篇）")
 
             summary_duration = time.time() - summary_start_time
             logger.info(
-                f"摘要生成完成: {len(articles_to_summarize)} 篇, "
+                f"摘要生成完成: {total} 篇, "
                 f"耗时 {summary_duration:.2f} 秒, "
-                f"平均 {summary_duration / len(articles_to_summarize):.2f} 秒/篇"
+                f"平均 {summary_duration / total:.2f} 秒/篇"
             )
+        else:
+            # 没有需要摘要的文章：把本轮 flush 的文章插入一次性提交
+            session.commit()
 
         logger.info(f"RSS 源 {feed.name} 抓取完成，新增 {new_articles_count} 篇文章")
         return new_articles_count
 
     except Exception as e:
         logger.error(f"抓取 RSS 源失败: {feed.name}, 错误: {e}")
+        # 回滚本 Feed 已 flush 但未提交的变更，避免泄漏到下一个 Feed
+        try:
+            session.rollback()
+        except Exception as rb_err:
+            logger.error(f"回滚失败: {rb_err}")
         return 0
 
 

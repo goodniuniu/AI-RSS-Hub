@@ -7,6 +7,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlmodel import Session
 from app.database import engine
 from app.services.rss_fetcher import fetch_all_feeds
+from app.crud import prune_api_request_logs
 from app.config import settings
 import logging
 import signal
@@ -33,6 +34,8 @@ def scheduled_fetch_job():
     def fetch_with_timeout():
         try:
             with Session(engine) as session:
+                # 先清理过期 API 请求日志，控制表体积与写入放大
+                prune_api_request_logs(session)
                 stats = fetch_all_feeds(session)
                 result["completed"] = True
                 result["stats"] = stats

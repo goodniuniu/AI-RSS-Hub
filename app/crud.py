@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import text
 from app.models import Feed, Article
 import logging
 
@@ -175,3 +176,34 @@ def update_article_summary(session: Session, article_id: int, summary: str) -> O
         session.refresh(article)
         logger.info(f"更新 Article 总结: {article.title}")
     return article
+
+
+def prune_api_request_logs(session: Session, keep_days: int = 30) -> int:
+    """
+    清理超过 keep_days 天的 API 请求日志。
+
+    api_request_log 表对每个 HTTP 请求写入一行，无限增长会拖慢监控查询、
+    放大磁盘写入。在每次抓取任务开始时调用，仅保留最近 keep_days 天。
+
+    Args:
+        session: 数据库会话
+        keep_days: 保留天数（默认 30 天）
+
+    Returns:
+        被删除的行数
+    """
+    cutoff = (datetime.now() - timedelta(days=keep_days)).strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        result = session.execute(
+            text("DELETE FROM api_request_log WHERE created_at < :cutoff"),
+            {"cutoff": cutoff},
+        )
+        session.commit()
+        deleted = result.rowcount or 0
+        if deleted:
+            logger.info(f"清理 API 请求日志: 删除 {deleted} 条（保留近 {keep_days} 天）")
+        return deleted
+    except Exception as e:
+        session.rollback()
+        logger.error(f"清理 API 请求日志失败: {e}")
+        return 0

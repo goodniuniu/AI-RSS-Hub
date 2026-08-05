@@ -174,9 +174,16 @@ async def fetch_feed(feed: Feed, session: Session) -> int:
                         logger.error(f"摘要生成异常，跳过该篇: {result}")
                         continue
                     zh_summary, en_summary = result
+                    # zh/en 各自独立判断：纯英文内容返回 ("", en)、纯中文返回 (zh, "")，
+                    # 不能再用 zh_summary 作总开关，否则英文文章永远不落库摘要。
+                    changed = False
                     if zh_summary and "失败" not in zh_summary and "异常" not in zh_summary:
                         article.summary = zh_summary          # 中文摘要
+                        changed = True
+                    if en_summary and "失败" not in en_summary and "异常" not in en_summary:
                         article.summary_en = en_summary       # 英文摘要
+                        changed = True
+                    if changed:
                         session.add(article)
 
                 # 每批提交一次（WAL + synchronous=NORMAL 下不 fsync，仅推进事务、释放引用）

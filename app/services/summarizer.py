@@ -244,6 +244,21 @@ def detect_content_language(content: str) -> str:
 
 # ==================== 双语摘要功能 ====================
 
+def _truncate_at_sentence(text: str, limit: int) -> str:
+    """超长时就近在 limit 之前的句末标点处收尾，避免在句子中间砍断。
+
+    找不到合适的句末标点（如整段无标点）才退回硬截断。
+    """
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    pos = max(cut.rfind(p) for p in ("。", "！", "？", ". ", "! ", "? "))
+    if pos >= limit // 3:
+        end = pos + 1 if cut[pos] in "。！？" else pos + 2
+        return cut[:end].rstrip() + "…"
+    return cut.rstrip() + "…"
+
+
 async def summarize_article_bilingual(
     title: str,
     content: str,
@@ -302,7 +317,7 @@ Content: {content[:3000]}
 
 Requirements:
 1. Chinese summary (中文摘要): No more than {settings.summary_max_length} Chinese characters
-2. English summary (英文摘要): No more than {settings.summary_max_length * 2} English words
+2. English summary (英文摘要): No more than {settings.summary_max_length * 2} characters
 3. Keep key information and main points
 4. Make both summaries concise and informative
 
@@ -336,13 +351,11 @@ Important: Only provide the summaries, no other text."""
             zh_summary = extract_chinese_summary(result)
             en_summary = extract_english_summary(result)
 
-            # 截断过长的摘要
-            if len(zh_summary) > settings.summary_max_length:
-                zh_summary = zh_summary[:settings.summary_max_length] + "..."
-            if len(en_summary) > settings.summary_max_length * 2:
-                en_summary = en_summary[:settings.summary_max_length * 2] + "..."
+            # 截断过长的摘要（按句末标点收尾，避免半句话）
+            zh_summary = _truncate_at_sentence(zh_summary, settings.summary_max_length)
+            en_summary = _truncate_at_sentence(en_summary, settings.summary_max_length * 2)
 
-            logger.info(f"双语摘要生成成功 - 中文: {len(zh_summary)}字, 英文: {len(en_summary)}词")
+            logger.info(f"双语摘要生成成功 - 中文: {len(zh_summary)}字, 英文: {len(en_summary)}字符")
             return zh_summary, en_summary
 
     except RateLimitError:
@@ -547,9 +560,8 @@ async def _do_summarize_chinese(title: str, content: str) -> str:
 
         summary = response.choices[0].message.content.strip()
 
-        # 截断过长的摘要
-        if len(summary) > settings.summary_max_length:
-            summary = summary[:settings.summary_max_length] + "..."
+        # 截断过长的摘要（按句末标点收尾）
+        summary = _truncate_at_sentence(summary, settings.summary_max_length)
 
         logger.info(f"中文摘要生成成功，长度: {len(summary)}字")
         return summary
@@ -593,7 +605,7 @@ async def _do_summarize_english(title: str, content: str) -> str:
         base_url=settings.openai_api_base,
         timeout=settings.llm_timeout,
     ) as client:
-        prompt = f"""Please summarize the following article in English, no more than {settings.summary_max_length * 2} words.
+        prompt = f"""Please summarize the following article in English, no more than {settings.summary_max_length * 2} characters.
 
 Title: {title}
 Content: {content[:3000]}
@@ -615,9 +627,8 @@ Requirements:
 
         summary = response.choices[0].message.content.strip()
 
-        # 截断过长的摘要
-        if len(summary) > settings.summary_max_length * 2:
-            summary = summary[:settings.summary_max_length * 2] + "..."
+        # 截断过长的摘要（按句末标点收尾）
+        summary = _truncate_at_sentence(summary, settings.summary_max_length * 2)
 
         logger.info(f"英文摘要生成成功，长度: {len(summary)}字符")
         return summary
@@ -635,7 +646,7 @@ def _generate_fallback_summary(content: str) -> str:
     clean_content = clean_content.strip()
 
     if len(clean_content) > settings.summary_max_length:
-        clean_content = clean_content[:settings.summary_max_length] + "..."
+        clean_content = _truncate_at_sentence(clean_content, settings.summary_max_length)
     return clean_content
 
 

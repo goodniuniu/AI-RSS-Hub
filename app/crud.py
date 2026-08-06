@@ -1,7 +1,7 @@
 """
 数据库 CRUD 操作
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import List, Optional
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
@@ -192,7 +192,9 @@ def prune_api_request_logs(session: Session, keep_days: int = 30) -> int:
     Returns:
         被删除的行数
     """
-    cutoff = (datetime.now() - timedelta(days=keep_days)).strftime("%Y-%m-%d %H:%M:%S")
+    # created_at 由 SQLite CURRENT_TIMESTAMP 写入（UTC），cutoff 必须用 UTC，
+    # 用本地时间会有 8 小时偏差，导致多删/少删
+    cutoff = (datetime.now(UTC) - timedelta(days=keep_days)).strftime("%Y-%m-%d %H:%M:%S")
     try:
         result = session.execute(
             text("DELETE FROM api_request_log WHERE created_at < :cutoff"),

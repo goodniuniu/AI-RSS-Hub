@@ -15,7 +15,7 @@ from app.crud import (
 from app.security.auth import verify_api_token
 from app.security.validators import FeedCreateValidated
 from app.config import settings
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 import logging
 
 logger = logging.getLogger(__name__)
@@ -319,8 +319,9 @@ def get_api_stats(
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        # 计算时间范围
-        cutoff_time = (datetime.now() - timedelta(hours=hours)).isoformat()
+        # 计算时间范围（api_request_log.created_at 由 SQLite CURRENT_TIMESTAMP 写入，
+        # 是 UTC；cutoff 必须用 UTC，且格式与存储一致，否则字符串比较有 8 小时偏差）
+        cutoff_time = (datetime.now(UTC) - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
 
         # 1. 端点统计
         cursor.execute("""

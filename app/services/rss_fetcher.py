@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 from sqlmodel import Session
 from app.models import Feed, Article
 from app.crud import get_all_feeds, article_exists, create_article
-from app.services.summarizer import summarize_article_auto
+from app.services.summarizer import summarize_article_bilingual
 from app.config import settings
 import logging
 import time
@@ -150,8 +150,8 @@ async def fetch_feed(feed: Feed, session: Session) -> int:
             total = len(articles_to_summarize)
             n_batches = (total + batch_size - 1) // batch_size
             logger.info(
-                f"开始分批并发生成 {total} 篇文章的摘要"
-                f"（每批 {batch_size} 篇，共 {n_batches} 批，自动检测语言）..."
+                f"开始分批并发生成 {total} 篇文章的双语摘要"
+                f"（每批 {batch_size} 篇，共 {n_batches} 批）..."
             )
             summary_start_time = time.time()
 
@@ -162,9 +162,9 @@ async def fetch_feed(feed: Feed, session: Session) -> int:
                 start = batch_idx * batch_size
                 batch = articles_to_summarize[start:start + batch_size]
 
-                # 并发生成本批摘要（自动检测语言）；return_exceptions 隔离单条失败
+                # 并发生成本批双语摘要；return_exceptions 隔离单条失败
                 tasks = [
-                    summarize_article_auto(article.title, content, semaphore)
+                    summarize_article_bilingual(article.title, content, semaphore)
                     for article, content in batch
                 ]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -174,8 +174,8 @@ async def fetch_feed(feed: Feed, session: Session) -> int:
                         logger.error(f"摘要生成异常，跳过该篇: {result}")
                         continue
                     zh_summary, en_summary = result
-                    # zh/en 各自独立判断：纯英文内容返回 ("", en)、纯中文返回 (zh, "")，
-                    # 不能再用 zh_summary 作总开关，否则英文文章永远不落库摘要。
+                    # zh/en 各自独立判断：双语生成也可能因解析失败只拿到其中一种，
+                    # 不能用 zh_summary 作总开关，否则英文摘要可能不落库。
                     changed = False
                     if zh_summary and "失败" not in zh_summary and "异常" not in zh_summary:
                         article.summary = zh_summary          # 中文摘要

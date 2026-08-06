@@ -320,6 +320,7 @@ Requirements:
 2. English summary (英文摘要): No more than {settings.summary_max_length * 2} characters
 3. Keep key information and main points
 4. Make both summaries concise and informative
+5. Each summary MUST end with a complete sentence; NEVER use ellipsis (... or …)
 
 Please respond in the following format:
 Chinese: [你的中文摘要]

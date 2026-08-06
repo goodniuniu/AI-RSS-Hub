@@ -279,7 +279,7 @@ async def summarize_article_bilingual(
 
 @retry(
     stop=stop_after_attempt(settings.summary_retry_attempts),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
+    wait=wait_exponential(multiplier=1, min=2, max=60),
     retry=retry_if_exception_type((APIError, APITimeoutError)),
     before_sleep=before_sleep_log(logger, logging.INFO),
 )
@@ -485,7 +485,7 @@ async def summarize_article_auto(
 
 @retry(
     stop=stop_after_attempt(settings.summary_retry_attempts),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
+    wait=wait_exponential(multiplier=1, min=2, max=60),
     retry=retry_if_exception_type((APIError, APITimeoutError)),
     before_sleep=before_sleep_log(logger, logging.INFO),
 )
@@ -550,7 +550,7 @@ async def _do_summarize_chinese(title: str, content: str) -> str:
 
 @retry(
     stop=stop_after_attempt(settings.summary_retry_attempts),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
+    wait=wait_exponential(multiplier=1, min=2, max=60),
     retry=retry_if_exception_type((APIError, APITimeoutError)),
     before_sleep=before_sleep_log(logger, logging.INFO),
 )

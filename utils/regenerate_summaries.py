@@ -11,7 +11,7 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 from app.database import engine
 from app.models import Article
 from app.services.summarizer import summarize_article_bilingual
@@ -41,8 +41,12 @@ async def regenerate_summaries(limit: int = None, force: bool = False, concurren
             # 只查询 summary 为 null 的文章
             query = query.where(Article.summary.is_(None))
 
-        # 按创建时间倒序，优先处理新文章
-        query = query.order_by(Article.created_at.desc())
+        # 按展示时间倒序，优先处理新文章
+        # （与 ai-rss-web 快照的 COALESCE(published_at, created_at) 排序对齐，
+        #  保证补全优先落在快照内的文章上）
+        query = query.order_by(
+            func.coalesce(Article.published_at, Article.created_at).desc()
+        )
 
         if limit:
             query = query.limit(limit)

@@ -139,6 +139,10 @@ class APIMonitoringMiddleware(BaseHTTPMiddleware):
     def _save_to_database(self, request_id, method, path, status_code,
                          process_time, client_ip, user_agent, error):
         """保存请求日志到数据库"""
+        # 健康检查请求不写数据库，避免日志表被探针撑大
+        if path == "/api/health":
+            return
+
         import sqlite3
         import threading
         from app.config import settings

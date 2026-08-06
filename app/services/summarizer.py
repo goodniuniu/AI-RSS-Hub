@@ -52,40 +52,39 @@ async def _do_summarize(text: str) -> str:
     实际执行 AI 总结的内部函数
     """
     try:
-        # 初始化异步 OpenAI 客户端
-        client = AsyncOpenAI(
+        # 初始化异步 OpenAI 客户端（上下文管理器确保连接正确释放）
+        async with AsyncOpenAI(
             api_key=settings.openai_api_key,
             base_url=settings.openai_api_base,
             timeout=settings.llm_timeout,
-        )
-
-        # 构建提示词
-        prompt = f"""请用中文对以下文章内容进行简短总结，不超过{settings.summary_max_length}字：
+        ) as client:
+            # 构建提示词
+            prompt = f"""请用中文对以下文章内容进行简短总结，不超过{settings.summary_max_length}字：
 
 {text[:2000]}  # 限制输入长度，避免超出 token 限制
 
 请直接输出总结内容，不要添加其他说明。"""
 
-        # 调用 API
-        response = await client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[
-                {"role": "system", "content": "你是一个专业的文章摘要助手。"},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.3,  # 较低的温度值，使输出更加确定
-            max_tokens=200,  # 限制输出长度
-        )
+            # 调用 API
+            response = await client.chat.completions.create(
+                model=settings.openai_model,
+                messages=[
+                    {"role": "system", "content": "你是一个专业的文章摘要助手。"},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,  # 较低的温度值，使输出更加确定
+                max_tokens=200,  # 限制输出长度
+            )
 
-        # 提取总结内容
-        summary = response.choices[0].message.content.strip()
+            # 提取总结内容
+            summary = response.choices[0].message.content.strip()
 
-        # 确保长度不超过限制
-        if len(summary) > settings.summary_max_length:
-            summary = summary[: settings.summary_max_length] + "..."
+            # 确保长度不超过限制
+            if len(summary) > settings.summary_max_length:
+                summary = summary[: settings.summary_max_length] + "..."
 
-        logger.info(f"AI 总结成功，原文长度: {len(text)}, 总结长度: {len(summary)}")
-        return summary
+            logger.info(f"AI 总结成功，原文长度: {len(text)}, 总结长度: {len(summary)}")
+            return summary
 
     except APITimeoutError:
         error_msg = f"LLM API 调用超时（超过 {settings.llm_timeout} 秒）"
@@ -289,15 +288,14 @@ async def _do_summarize_bilingual(title: str, content: str) -> tuple[str, str]:
     实际执行双语摘要生成的内部函数（带重试机制）
     """
     try:
-        # 初始化异步 OpenAI 客户端
-        client = AsyncOpenAI(
+        # 初始化异步 OpenAI 客户端（上下文管理器确保连接正确释放）
+        async with AsyncOpenAI(
             api_key=settings.openai_api_key,
             base_url=settings.openai_api_base,
             timeout=settings.llm_timeout,
-        )
-
-        # 构建双语摘要提示词
-        prompt = f"""Please summarize the following article in BOTH Chinese and English.
+        ) as client:
+            # 构建双语摘要提示词
+            prompt = f"""Please summarize the following article in BOTH Chinese and English.
 
 Title: {title}
 Content: {content[:3000]}
@@ -314,38 +312,38 @@ English: [Your English Summary]
 
 Important: Only provide the summaries, no other text."""
 
-        # 调用 API
-        response = await client.chat.completions.create(
-            model=settings.openai_model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a professional bilingual summarizer (Chinese and English)."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                },
-            ],
-            temperature=0.3,
-            max_tokens=500,  # 增加输出token限制以容纳双语摘要
-        )
+            # 调用 API
+            response = await client.chat.completions.create(
+                model=settings.openai_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a professional bilingual summarizer (Chinese and English)."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    },
+                ],
+                temperature=0.3,
+                max_tokens=500,  # 增加输出token限制以容纳双语摘要
+            )
 
-        # 提取响应内容
-        result = response.choices[0].message.content.strip()
+            # 提取响应内容
+            result = response.choices[0].message.content.strip()
 
-        # 解析中英文摘要
-        zh_summary = extract_chinese_summary(result)
-        en_summary = extract_english_summary(result)
+            # 解析中英文摘要
+            zh_summary = extract_chinese_summary(result)
+            en_summary = extract_english_summary(result)
 
-        # 截断过长的摘要
-        if len(zh_summary) > settings.summary_max_length:
-            zh_summary = zh_summary[:settings.summary_max_length] + "..."
-        if len(en_summary) > settings.summary_max_length * 2:
-            en_summary = en_summary[:settings.summary_max_length * 2] + "..."
+            # 截断过长的摘要
+            if len(zh_summary) > settings.summary_max_length:
+                zh_summary = zh_summary[:settings.summary_max_length] + "..."
+            if len(en_summary) > settings.summary_max_length * 2:
+                en_summary = en_summary[:settings.summary_max_length * 2] + "..."
 
-        logger.info(f"双语摘要生成成功 - 中文: {len(zh_summary)}字, 英文: {len(en_summary)}词")
-        return zh_summary, en_summary
+            logger.info(f"双语摘要生成成功 - 中文: {len(zh_summary)}字, 英文: {len(en_summary)}词")
+            return zh_summary, en_summary
 
     except APITimeoutError:
         error_msg = f"双语摘要生成超时（超过 {settings.llm_timeout} 秒）"
@@ -515,13 +513,12 @@ async def _do_summarize_chinese(title: str, content: str) -> str:
     """
     实际执行中文摘要生成
     """
-    client = AsyncOpenAI(
+    async with AsyncOpenAI(
         api_key=settings.openai_api_key,
         base_url=settings.openai_api_base,
         timeout=settings.llm_timeout,
-    )
-
-    prompt = f"""请用中文对以下文章进行简短总结，不超过{settings.summary_max_length}字。
+    ) as client:
+        prompt = f"""请用中文对以下文章进行简短总结，不超过{settings.summary_max_length}字。
 
 标题：{title}
 内容：{content[:3000]}
@@ -531,24 +528,24 @@ async def _do_summarize_chinese(title: str, content: str) -> str:
 2. 保持简洁，抓住要点
 3. 只输出中文"""
 
-    response = await client.chat.completions.create(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": "你是一个专业的中文文章摘要助手。"},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.3,
-        max_tokens=200,
-    )
+        response = await client.chat.completions.create(
+            model=settings.openai_model,
+            messages=[
+                {"role": "system", "content": "你是一个专业的中文文章摘要助手。"},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=200,
+        )
 
-    summary = response.choices[0].message.content.strip()
+        summary = response.choices[0].message.content.strip()
 
-    # 截断过长的摘要
-    if len(summary) > settings.summary_max_length:
-        summary = summary[:settings.summary_max_length] + "..."
+        # 截断过长的摘要
+        if len(summary) > settings.summary_max_length:
+            summary = summary[:settings.summary_max_length] + "..."
 
-    logger.info(f"中文摘要生成成功，长度: {len(summary)}字")
-    return summary
+        logger.info(f"中文摘要生成成功，长度: {len(summary)}字")
+        return summary
 
 
 @retry(
@@ -581,13 +578,12 @@ async def _do_summarize_english(title: str, content: str) -> str:
     """
     实际执行英文摘要生成
     """
-    client = AsyncOpenAI(
+    async with AsyncOpenAI(
         api_key=settings.openai_api_key,
         base_url=settings.openai_api_base,
         timeout=settings.llm_timeout,
-    )
-
-    prompt = f"""Please summarize the following article in English, no more than {settings.summary_max_length * 2} words.
+    ) as client:
+        prompt = f"""Please summarize the following article in English, no more than {settings.summary_max_length * 2} words.
 
 Title: {title}
 Content: {content[:3000]}
@@ -597,24 +593,24 @@ Requirements:
 2. Keep it concise and capture key points
 3. Output in English only"""
 
-    response = await client.chat.completions.create(
-        model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": "You are a professional article summarizer."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.3,
-        max_tokens=300,
-    )
+        response = await client.chat.completions.create(
+            model=settings.openai_model,
+            messages=[
+                {"role": "system", "content": "You are a professional article summarizer."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=300,
+        )
 
-    summary = response.choices[0].message.content.strip()
+        summary = response.choices[0].message.content.strip()
 
-    # 截断过长的摘要
-    if len(summary) > settings.summary_max_length * 2:
-        summary = summary[:settings.summary_max_length * 2] + "..."
+        # 截断过长的摘要
+        if len(summary) > settings.summary_max_length * 2:
+            summary = summary[:settings.summary_max_length * 2] + "..."
 
-    logger.info(f"英文摘要生成成功，长度: {len(summary)}字符")
-    return summary
+        logger.info(f"英文摘要生成成功，长度: {len(summary)}字符")
+        return summary
 
 
 def _generate_fallback_summary(content: str) -> str:

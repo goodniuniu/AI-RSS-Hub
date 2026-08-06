@@ -3,7 +3,7 @@ AI 总结服务
 使用 OpenAI 兼容接口进行文本总结
 可以轻松替换为 DeepSeek、Gemini 等其他提供商
 """
-from openai import AsyncOpenAI, APITimeoutError, APIError
+from openai import AsyncOpenAI, APITimeoutError, APIError, RateLimitError
 from app.config import settings
 import logging
 import asyncio
@@ -279,7 +279,7 @@ async def summarize_article_bilingual(
 
 @retry(
     stop=stop_after_attempt(settings.summary_retry_attempts),
-    wait=wait_exponential(multiplier=1, min=2, max=60),
+    wait=wait_exponential(multiplier=1, min=10, max=60),
     retry=retry_if_exception_type((APIError, APITimeoutError)),
     before_sleep=before_sleep_log(logger, logging.INFO),
 )
@@ -344,6 +344,10 @@ Important: Only provide the summaries, no other text."""
 
             logger.info(f"双语摘要生成成功 - 中文: {len(zh_summary)}字, 英文: {len(en_summary)}词")
             return zh_summary, en_summary
+
+    except RateLimitError:
+        # 429 限流：抛给 tenacity 长退避重试，跨过 RPM 分钟窗口，不做降级
+        raise
 
     except APITimeoutError:
         error_msg = f"双语摘要生成超时（超过 {settings.llm_timeout} 秒）"
@@ -485,7 +489,7 @@ async def summarize_article_auto(
 
 @retry(
     stop=stop_after_attempt(settings.summary_retry_attempts),
-    wait=wait_exponential(multiplier=1, min=2, max=60),
+    wait=wait_exponential(multiplier=1, min=10, max=60),
     retry=retry_if_exception_type((APIError, APITimeoutError)),
     before_sleep=before_sleep_log(logger, logging.INFO),
 )
@@ -504,6 +508,9 @@ async def _summarize_chinese_only(
                 return await _do_summarize_chinese(title, content)
         else:
             return await _do_summarize_chinese(title, content)
+    except RateLimitError:
+        # 429 限流：抛给 tenacity 长退避重试，跨过 RPM 分钟窗口，不做降级
+        raise
     except Exception as e:
         logger.error(f"中文摘要生成失败: {e}")
         return _generate_fallback_summary(content)
@@ -550,7 +557,7 @@ async def _do_summarize_chinese(title: str, content: str) -> str:
 
 @retry(
     stop=stop_after_attempt(settings.summary_retry_attempts),
-    wait=wait_exponential(multiplier=1, min=2, max=60),
+    wait=wait_exponential(multiplier=1, min=10, max=60),
     retry=retry_if_exception_type((APIError, APITimeoutError)),
     before_sleep=before_sleep_log(logger, logging.INFO),
 )
@@ -569,6 +576,9 @@ async def _summarize_english_only(
                 return await _do_summarize_english(title, content)
         else:
             return await _do_summarize_english(title, content)
+    except RateLimitError:
+        # 429 限流：抛给 tenacity 长退避重试，跨过 RPM 分钟窗口，不做降级
+        raise
     except Exception as e:
         logger.error(f"英文摘要生成失败: {e}")
         return ""

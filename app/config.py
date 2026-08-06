@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     llm_timeout: int = 45  # LLM API 超时时间（秒，增加以避免超时）
     max_concurrent_summaries: int = 3  # 并发生成摘要的最大数量（优化后提高吞吐量）
     summary_batch_size: int = 10  # 摘要分批大小（每批篇数）：限制单批同时驻留的原文/响应，压低内存峰值
-    summary_retry_attempts: int = 3  # API 调用失败时的重试次数
+    summary_retry_attempts: int = 5  # API 调用失败时的重试次数（429 需跨 RPM 分钟窗口，配合 min=10s 退避）
     summary_retry_delay: int = 2  # 重试延迟（秒）
 
     # ========== 安全配置 ==========

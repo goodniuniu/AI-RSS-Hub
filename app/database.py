@@ -35,19 +35,42 @@ def set_sqlite_pragma(dbapi_conn, connection_record):
         cursor.execute("PRAGMA synchronous=NORMAL")
 
         # 设置 WAL 文件自动检查点
-        # 当 WAL 文件达到 1000 页时自动执行检查点
-        cursor.execute("PRAGMA wal_autocheckpoint=1000")
+        # 调大到 5000 页（约 20MB）：降低自动 checkpoint 频率，把集中刷盘
+        # 留给抓取任务结束后的 checkpoint_wal() 主动执行，避免随机时刻
+        # 触发密集 IO 击穿 ESSD Entry 限额（106 MB/s / 2120 IOPS）
+        cursor.execute("PRAGMA wal_autocheckpoint=5000")
 
-        # 启用内存映射 I/O（可选，进一步提速）
-        cursor.execute("PRAGMA mmap_size=268435456")  # 256MB
+        # 启用内存映射 I/O
+        # 2GiB 内存实例：256MB mmap 会加剧内存压力触发 swap 换页 IO，
+        # 控制在 64MB，与 cache_size 合计驻留上限约 128MB
+        cursor.execute("PRAGMA mmap_size=67108864")  # 64MB
 
         # 设置缓存大小（可选）
         # 增加缓存可以提高读取性能
-        cursor.execute("PRAGMA cache_size=-64000")  # 64MB
+        cursor.execute("PRAGMA cache_size=-65536")  # 64MB
 
         cursor.close()
 
         logger.info("SQLite WAL 模式已启用，性能优化配置已应用")
+
+
+def checkpoint_wal():
+    """
+    主动执行 WAL checkpoint（PASSIVE 模式）。
+
+    PASSIVE 不阻塞并发读写：把 WAL 中已提交的内容尽量合并回主库，
+    但若存在活跃读者则跳过部分页，失败/busy 也只是少合并一些页，
+    不影响业务。在批量写入（抓取任务）结束后调用，把落盘时机
+    控制在我们选择的时间点，避免运行期随机触发阻塞式自动 checkpoint。
+    """
+    try:
+        with engine.connect() as conn:
+            result = conn.exec_driver_sql("PRAGMA wal_checkpoint(PASSIVE)")
+            row = result.mappings().first()
+            # 返回 (busy, log_pages, checkpointed_pages)
+            logger.debug(f"WAL checkpoint 完成: {dict(row) if row else 'no rows'}")
+    except Exception as e:
+        logger.warning(f"WAL checkpoint 执行失败（不影响业务）: {e}")
 
 
 def create_db_and_tables():

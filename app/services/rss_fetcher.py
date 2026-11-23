@@ -9,6 +9,7 @@ from typing import List, Optional, Tuple
 from sqlmodel import Session
 from app.models import Feed, Article
 from app.crud import get_all_feeds, article_exists, create_article
+from app.database import checkpoint_wal
 from app.services.summarizer import summarize_article_bilingual
 from app.config import settings
 import logging
@@ -144,6 +145,11 @@ async def fetch_feed(feed: Feed, session: Session) -> int:
                 logger.error(f"处理条目失败: {e}")
                 continue
 
+        # 条目处理完毕：释放 feedparser 解析树（含全量 XML 字段），
+        # 避免其与摘要阶段的 LLM 响应同时驻留，推高内存峰值
+        parsed.entries = []
+        del parsed
+
         # 分批并发生成摘要：限制单批同时驻留的原文/响应以压低内存峰值，每批提交一次。
         if articles_to_summarize:
             batch_size = max(1, settings.summary_batch_size)
@@ -158,9 +164,10 @@ async def fetch_feed(feed: Feed, session: Session) -> int:
             # 信号量在整个摘要阶段共享，跨批次约束 LLM 并发
             semaphore = asyncio.Semaphore(settings.max_concurrent_summaries)
 
+            # 逐批 pop 取出：处理完的批次立即释放原文 content 引用，
+            # 全文内容不再驻留到摘要阶段结束
             for batch_idx in range(n_batches):
-                start = batch_idx * batch_size
-                batch = articles_to_summarize[start:start + batch_size]
+                batch = [articles_to_summarize.pop(0) for _ in range(min(batch_size, len(articles_to_summarize)))]
 
                 # 并发生成本批双语摘要；return_exceptions 隔离单条失败
                 tasks = [
@@ -186,9 +193,11 @@ async def fetch_feed(feed: Feed, session: Session) -> int:
                     if changed:
                         session.add(article)
 
+                batch.clear()
+
                 # 每批提交一次（WAL + synchronous=NORMAL 下不 fsync，仅推进事务、释放引用）
                 session.commit()
-                logger.info(f"摘要批次 {batch_idx + 1}/{n_batches} 完成（{len(batch)} 篇）")
+                logger.info(f"摘要批次 {batch_idx + 1}/{n_batches} 完成（{batch_size} 篇）")
 
             summary_duration = time.time() - summary_start_time
             logger.info(
@@ -233,15 +242,23 @@ async def fetch_all_feeds_async(session: Session) -> dict:
         logger.warning("没有活跃的 RSS 源")
         return {"total_feeds": 0, "total_articles": 0, "duration": 0}
 
-    # 串行抓取每个 Feed（避免同时解析多个 RSS 源）
+    # 串行抓取每个 Feed（避免同时解析多个 RSS 源），并分批错峰：
+    # 每完成一批源后休眠，给 GC 回收与磁盘落盘留出窗口，
+    # 避免内存/IO 同时冲高（2GiB 内存实例内存吃紧会触发 swap 换页 IO）
     total_articles = 0
-    for feed in feeds:
+    batch_size = max(1, settings.fetch_feed_batch_size)
+    interval = max(0, settings.fetch_feed_batch_interval)
+    for idx, feed in enumerate(feeds):
         try:
             count = await fetch_feed(feed, session)
             total_articles += count
         except Exception as e:
             logger.error(f"抓取 Feed {feed.name} 时发生异常: {e}")
             continue
+
+        if interval and (idx + 1) % batch_size == 0 and idx + 1 < len(feeds):
+            logger.debug(f"已完成 {idx + 1} 个源，休眠 {interval} 秒后继续下一批")
+            await asyncio.sleep(interval)
 
     duration = time.time() - start_time
 
@@ -273,7 +290,10 @@ def fetch_all_feeds(session: Session) -> dict:
     # 创建新的事件循环来运行异步版本
     # 这对于在 ThreadPoolExecutor 线程中运行是必需的（如 APScheduler）
     try:
-        return asyncio.run(fetch_all_feeds_async(session))
+        stats = asyncio.run(fetch_all_feeds_async(session))
+        # 抓取批量写入结束，主动平滑落盘 WAL，把集中刷盘控制在任务收尾时段
+        checkpoint_wal()
+        return stats
     except Exception as e:
         logger.error(f"异步抓取失败，使用同步方式: {e}")
         # 降级到简单的同步处理（不生成摘要）
@@ -318,6 +338,7 @@ def fetch_all_feeds(session: Session) -> dict:
                 logger.error(f"抓取 Feed {feed.name} 失败: {e}")
 
         duration = time.time() - start_time
+        checkpoint_wal()
         return {
             "total_feeds": len(feeds),
             "total_articles": total_articles,

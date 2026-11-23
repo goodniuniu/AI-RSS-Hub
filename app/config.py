@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # RSS 抓取配置
     fetch_interval_hours: int = 1  # 抓取间隔（小时）
     request_timeout: int = 30  # HTTP 请求超时时间（秒）
+    fetch_feed_batch_size: int = 5  # 抓取分批大小（每批源数）：批间休眠，避免瞬时内存/IO 双高
+    fetch_feed_batch_interval: int = 5  # 批间休眠秒数，给 GC/落盘留出错峰窗口
 
     # AI 总结配置
     summary_max_length: int = 150  # 总结最大长度（增加以获取更详细摘要）

@@ -31,6 +31,7 @@
 **运维管理**
 - [📊 API 监控指南](api/MONITORING_GUIDE.md) - 监控 API 使用情况
 - [📅 更新日志](logs/RSS_SOURCES_UPDATE_LOG.md) - RSS 源更新记录
+- [🛡️ IO 故障复盘与资源围栏手册](deployment/IO_INCIDENT_2026_11.md) - 2026-11 事故复盘、围栏参数、巡检与升配预案
 
 ### 🔧 对于开发者
 
